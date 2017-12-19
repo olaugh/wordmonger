@@ -1,0 +1,6 @@
+Wordmonger (c) 2017 John O'Laughlin
+
+So far this is a Jumbletime/Aerolith clone, may add other modes in the future.
+
+I'm using Qt 5.9.3, building with Qt Creator, and have only tested on a
+2017 MacBook Air 13-inch running macOS Sierra.
