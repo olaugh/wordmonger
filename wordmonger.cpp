@@ -37,7 +37,7 @@ Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
 
   central_layout->setStretchFactor(questions_layout, 3);
 
-  setMinimumSize(480, 270);
+  setMinimumSize(640, 360);
   resize(1080, 602);
 }
 
@@ -48,12 +48,24 @@ void Wordmonger::resizeEvent(QResizeEvent* event) {
   linearGrad.setColorAt(1, QColor(201, 207, 216));
 
   QPalette pal = palette();
-  // set black background
   QBrush brush(linearGrad);
-  //pal.setColor(QPalette::Background, Qt::black);
   pal.setBrush(QPalette::Window, brush);
   setAutoFillBackground(true);
   setPalette(pal);
+
+  int v_spacing = std::min(9, height() / 72);
+  int h_spacing = std::min(9, width() / 120);
+  const int spacing = std::min(v_spacing, h_spacing);
+  questions_layout->setHorizontalSpacing(spacing);
+  questions_layout->setVerticalSpacing(spacing);
+
+  qInfo() << "questions_layout->horizonalSpacing(): "
+          << questions_layout->horizontalSpacing();
+
+  const int line_edit_font_size = std::min(18, std::max(12, height() / 35));
+  QFont font("Futura", line_edit_font_size);
+  qInfo() << "line_edit_font_size: " << line_edit_font_size;
+  answer_line_edit->setFont(font);
 }
 
 QString QuestionAndAnswer::getClue() const {
@@ -66,11 +78,11 @@ QString QuestionAndAnswer::getClue() const {
   for (const auto& pair : counts) {
     const QChar& c = pair.first;
     for (int i = 0; i < pair.second; ++i) {
-        if (c == 'A' || c == 'E' || c == 'I' || c == 'O' || c == "U") {
-          vowels += c;
-        } else {
-          consonants += c;
-        }
+      if (c == 'A' || c == 'E' || c == 'I' || c == 'O' || c == "U") {
+        vowels += c;
+      } else {
+        consonants += c;
+      }
     }
   }
   return vowels + consonants;
@@ -78,8 +90,8 @@ QString QuestionAndAnswer::getClue() const {
 
 void Wordmonger::addQuestions() {
  int i = 0;
-  for (int row = 0; row < 10; row++) {
-    for (int col = 0; col < 5; col++) {
+  for (int col = 0; col < 5; col++) {
+    for (int row = 0; row < 10; row++) {
       Question* question = new Question(this, i);
       questions.push_back(question);
       questions_layout->addWidget(question, row, col, 1, 1);
@@ -115,18 +127,30 @@ void Question::paintEvent(QPaintEvent* event) {
   QPainter painter;
   painter.begin(this);
   if (solved_answer_indices.size() == 0) {
-    const int clue_font_size = 0.5 * height();
+    int clue_font_size = 0.5 * height();
     painter.fillRect(event->rect(), QColor(255, 255, 255, 64));
     QFont font("Futura", clue_font_size);
     QFontMetrics fm(font);
-    const int text_width = fm.width(clue);
-    const int text_height = fm.height();
+    int text_width = fm.width(clue);
+    int text_height = fm.height();
+    int descent = fm.descent();
+    const int max_text_width = 0.8 * width();
+    if (text_width > max_text_width) {
+      clue_font_size = max_text_width * clue_font_size / text_width;
+      clue_font_size = std::max(6, clue_font_size);
+      QFont smaller_font("Futura", clue_font_size);
+      QFontMetrics fm(smaller_font);
+      text_width = fm.width(clue);
+      text_height = fm.height();
+      descent = fm.descent();
+    }
     painter.setFont({"Futura", clue_font_size});
+
     int x = 0.5 * (width() - text_width);
-    int y = 0.5 * (height() + text_height) - fm.descent();
+    int y = 0.5 * (height() + text_height) - descent;
     painter.drawText(x, y, clue);
   } else {
-    const int answer_font_size = 0.45 * height();
+    int answer_font_size = 0.45 * height();
     painter.eraseRect(event->rect());
     painter.fillRect(event->rect(), QColor(0, 0, 0, 20));
     QRect rect(0, 0, width() - 1, height() - 1);
@@ -135,8 +159,19 @@ void Question::paintEvent(QPaintEvent* event) {
     const QString& answer = q_and_a.getAnswers()[0];
     QFont font("Futura", answer_font_size);
     QFontMetrics fm(font);
-    const int text_width = fm.width(answer);
-    const int text_height = fm.height();
+    int text_width = fm.width(answer);
+    int text_height = fm.height();
+    int descent = fm.descent();
+    const int max_text_width = 0.8 * width();
+    if (text_width > max_text_width) {
+      answer_font_size = max_text_width * answer_font_size / text_width;
+      answer_font_size = std::max(6, answer_font_size);
+      QFont smaller_font("Futura", answer_font_size);
+      QFontMetrics fm(smaller_font);
+      text_width = fm.width(clue);
+      text_height = fm.height();
+      descent = fm.descent();
+    }
 
     painter.setFont({"Futura", answer_font_size});
     if (Wordmonger::self()->IsTwl(answer)) {
@@ -146,7 +181,7 @@ void Question::paintEvent(QPaintEvent* event) {
     }
 
     int x = 0.5 * (width() - text_width);
-    int y = 0.5 * (height() + text_height) - fm.descent();
+    int y = 0.5 * (height() + text_height) - descent;
     painter.drawText(x, y, answer);
   }
   painter.end();
