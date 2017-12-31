@@ -33,12 +33,14 @@ class WordStatusBar : public QWidget {
  public:
   WordStatusBar(QWidget* parent = 0);
   void SetTime(int time_millis) { this->time_millis = time_millis; }
-
+  void SetFontSize(int font_size) { this->font_size = font_size; }
  protected:
   void paintEvent(QPaintEvent *event);
 
  private:
   int time_millis;
+  int font_size;
+
 };
 
 class QuestionAndAnswer {
@@ -59,7 +61,7 @@ class Wordmonger : public QMainWindow {
 
  public:
   Wordmonger(QWidget* parent);
-  static Wordmonger* self();
+  static Wordmonger* get();
 
   const QuestionAndAnswer& QuestionAndAnswerAt(int i) const {
     return questions_and_answers[i];
@@ -99,15 +101,18 @@ class Wordmonger : public QMainWindow {
   void timerEvent(QTimerEvent *event) override;
 
  private:
-  void chooseWords();
-  void loadSingleAnagramWords();
+  void CreateWidgets();
+  void ChooseWords();
+  void StartTimer();
+  void LoadSingleAnagramWords();
   std::vector<QuestionAndAnswer> questions_and_answers;
-  void addQuestions();
+  void AddQuestions();
   QGridLayout* questions_layout;
   std::vector<Question*> questions;
   std::map<QString, std::vector<Question*>> answer_map;
 
-  void loadDictionary(const QString& path, std::set<QString>* dict);
+  void LoadDictionaries();
+  void LoadDictionary(const QString& path, std::set<QString>* dict);
   std::set<QString> twl;
   std::set<QString> csw;
 
@@ -120,7 +125,7 @@ class Wordmonger : public QMainWindow {
   QElapsedTimer elapsed_timer;
   QBasicTimer timer;
 
-  static Wordmonger* m_self;
+  static Wordmonger* self;
 };
 
 #endif  // WORDMONGER_H

@@ -5,52 +5,57 @@
 
 #include "wordmonger.h"
 
-Wordmonger* Wordmonger::m_self = 0;
-Wordmonger* Wordmonger::self() { return m_self; }
+Wordmonger* Wordmonger::self = 0;
+Wordmonger* Wordmonger::get() { return self; }
 Wordmonger::~Wordmonger() {}
 
 Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
-  m_self = this;
+  self = this;
 
+  LoadDictionaries();
+  CreateWidgets();
+  ChooseWords();
+  AddQuestions();
+  StartTimer();
+}
+
+void Wordmonger::CreateWidgets() {
   QWidget* central_widget = new QWidget(this);
   QVBoxLayout* central_layout = new QVBoxLayout(central_widget);
   central_layout->setContentsMargins(0, 0, 0, 0);
   central_layout->setSpacing(0);
   setCentralWidget(central_widget);
 
-  loadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
-  loadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
-  chooseWords();
-  //loadSingleAnagramWords();
-
   questions_layout = new QGridLayout;
-  addQuestions();
   central_layout->addLayout(questions_layout);
 
   answer_line_edit = new QLineEdit(central_widget);
   answer_line_edit->setAlignment(Qt::AlignHCenter);
-  QFont font("Futura", 18);
-  answer_line_edit->setFont(font);
   QObject::connect(answer_line_edit, SIGNAL(textChanged(QString)), this,
                    SLOT(textChangedSlot(QString)));
 
   central_layout->addWidget(answer_line_edit);
 
   word_status_bar = new WordStatusBar(this);
-  //word_status_bar = new QStatusBar(this);
-  //word_status_bar->showMessage("180", 0);
-  timer_millis = 20 * 1000;
-  elapsed_timer.start();
-  timer.start(1000 / 60, this);
-  time_expired = false;
-  quiz_finished = false;
-
   central_layout->addWidget(word_status_bar);
 
   central_layout->setStretchFactor(questions_layout, 3);
 
   setMinimumSize(640, 360);
   resize(1080, 602);
+}
+
+void Wordmonger::StartTimer() {
+  timer_millis = 20 * 1000;
+  elapsed_timer.start();
+  timer.start(1000 / 60, this);
+  time_expired = false;
+  quiz_finished = false;
+}
+
+void Wordmonger::LoadDictionaries() {
+  LoadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
+  LoadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
 }
 
 void Wordmonger::timerEvent(QTimerEvent *event) {
@@ -102,6 +107,9 @@ void Wordmonger::resizeEvent(QResizeEvent* event) {
   qInfo() << "line_edit_font_size: " << line_edit_font_size;
   answer_line_edit->setFont(font);
 
+  const int status_bar_font_size = std::min(16, std::max(10, height() / 42));
+  qInfo() << "status_bar_font_size: " << status_bar_font_size;
+  word_status_bar->SetFontSize(status_bar_font_size);
   word_status_bar->setMinimumHeight(line_edit_font_size * 1.75);
 }
 
@@ -131,13 +139,13 @@ QString QuestionAndAnswer::getClue() const {
   return alphagram(clue);
 }
 
-void Wordmonger::addQuestions() {
+void Wordmonger::AddQuestions() {
  int i = 0;
  for (int col = 0; col < 5; col++) {
-   for (int row = 0; row < 10;) {
+   for (int row = 0; row < 9;) {
      const std::vector<QString>& answers =
          questions_and_answers[i].getAnswers();
-     if (answers.size() + row > 10) {
+     if (answers.size() + row > 9) {
        break;
      }
      Question* question = new Question(this, i);
@@ -163,13 +171,12 @@ void WordStatusBar::paintEvent(QPaintEvent* event) {
   const int decimal_places = time_seconds < 10 ? 1 : 0;
   QString time_string = QString::number(time_seconds, 'f', decimal_places);
 
-  int timer_font_size = 14;
-  QFont font("Futura", timer_font_size);
+  QFont font("Futura", font_size);
   QFontMetrics fm(font);
   int text_width = fm.width(time_string);
   int text_height = fm.height();
   int descent = fm.descent();
-  painter.setFont({"Futura", timer_font_size});
+  painter.setFont(font);
 
   int x = 0.5 * (width() - text_width);
   int y = 0.5 * (height() + text_height) - descent;
@@ -181,7 +188,7 @@ Question::Question(QWidget* parent, int index) { this->index = index; }
 void Question::markAnswer(const QString& given_answer) {
   qInfo() << "markAnswer(" << given_answer << ")...";
   const QuestionAndAnswer& q_and_a =
-      Wordmonger::self()->QuestionAndAnswerAt(index);
+      Wordmonger::get()->QuestionAndAnswerAt(index);
   int answer_index = 0;
   for (const QString answer : q_and_a.getAnswers()) {
     qInfo() << "answer: " << answer;
@@ -197,9 +204,9 @@ void Question::markAnswer(const QString& given_answer) {
 
 void Question::paintEvent(QPaintEvent* event) {
   const QuestionAndAnswer& q_and_a =
-      Wordmonger::self()->QuestionAndAnswerAt(index);
+      Wordmonger::get()->QuestionAndAnswerAt(index);
   const QString clue = q_and_a.getClue();
-  const bool quiz_finished = Wordmonger::self()->QuizFinished();
+  const bool quiz_finished = Wordmonger::get()->QuizFinished();
   QPainter painter;
   painter.begin(this);
   painter.eraseRect(event->rect());
@@ -316,7 +323,7 @@ void Question::paintEvent(QPaintEvent* event) {
       }
 
       painter.setFont({"Futura", answer_font_size});
-      if (Wordmonger::self()->IsTwl(answer)) {
+      if (Wordmonger::get()->IsTwl(answer)) {
         painter.setPen({0, 0, 0, solved_this_answer ? 224 : 255});
       } else {
         painter.setPen({200, 0, 0, solved_this_answer ? 224 : 255});
@@ -339,7 +346,7 @@ void Question::paintEvent(QPaintEvent* event) {
   painter.end();
 }
 
-void Wordmonger::chooseWords() {
+void Wordmonger::ChooseWords() {
   std::map<QString, std::vector<QString>> sets;
   for (const QString& word : csw) {
     if (word.length() != 7) {
@@ -354,10 +361,10 @@ void Wordmonger::chooseWords() {
   std::random_shuffle(pairs.begin(), pairs.end());
   int i = 0;
   for (const auto& pair : pairs) {
-    if (pair.second.size() > 4) {
+    if (pair.second.size() != 3) {
       continue;
     }
-    if (i >= 50) {
+    if (i >= 45) {
       return;
     }
     i++;
@@ -366,12 +373,12 @@ void Wordmonger::chooseWords() {
   }
 }
 
-void Wordmonger::loadSingleAnagramWords() {
+void Wordmonger::LoadSingleAnagramWords() {
   QFile input("/Users/johnolaughlin/scrabble/csw-single-7s.txt");
   int i = 0;
   if (input.open(QIODevice::ReadOnly)) {
     QTextStream in(&input);
-    while (!in.atEnd() && i < 50) {
+    while (!in.atEnd() && i < 45) {
       QString word = in.readLine();
       qInfo() << "word: " << word;
       QuestionAndAnswer q_and_a(word, {word});
@@ -383,7 +390,7 @@ void Wordmonger::loadSingleAnagramWords() {
   qInfo() << "#words: " << i;
 }
 
-void Wordmonger::loadDictionary(const QString& path, std::set<QString>* dict) {
+void Wordmonger::LoadDictionary(const QString& path, std::set<QString>* dict) {
   QFile input(path);
   if (input.open(QIODevice::ReadOnly)) {
     QTextStream in(&input);
