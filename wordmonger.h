@@ -2,6 +2,8 @@
 #define WORDMONGER_H
 
 #include <QDebug>
+#include <QTimer>
+#include <QElapsedTimer>
 #include <QGridLayout>
 #include <QMainWindow>
 #include <QObject>
@@ -27,6 +29,18 @@ class Question : public QWidget {
   std::set<int> solved_answer_indices;
 };
 
+class WordStatusBar : public QWidget {
+ public:
+  WordStatusBar(QWidget* parent = 0);
+  void SetTime(int time_millis) { this->time_millis = time_millis; }
+
+ protected:
+  void paintEvent(QPaintEvent *event);
+
+ private:
+  int time_millis;
+};
+
 class QuestionAndAnswer {
  public:
   QuestionAndAnswer(const QString& clue, const std::vector<QString>& answers);
@@ -40,7 +54,6 @@ class QuestionAndAnswer {
   std::vector<QString> answers;
 };
 
-
 class Wordmonger : public QMainWindow {
   Q_OBJECT
 
@@ -48,9 +61,10 @@ class Wordmonger : public QMainWindow {
   Wordmonger(QWidget* parent);
   static Wordmonger* self();
 
-  const QuestionAndAnswer& questionAndAnswer(int i) const {
+  const QuestionAndAnswer& QuestionAndAnswerAt(int i) const {
     return questions_and_answers[i];
   }
+  bool QuizFinished() const { return quiz_finished; }
   bool IsTwl(QString word) const {
     return twl.count(word) > 0;
   }
@@ -59,7 +73,7 @@ class Wordmonger : public QMainWindow {
 
  public slots:
   void textChangedSlot(QString text) {
-    qInfo() << "text: " << text;
+    //qInfo() << "text: " << text;
     QString uppercase_text = text.toUpper();
     if (text == uppercase_text) return;
 
@@ -70,7 +84,11 @@ class Wordmonger : public QMainWindow {
     auto it = answer_map.find(uppercase_text);
     if (it != answer_map.end()) {
       for (Question* question : it->second) {
-        question->markAnswer(uppercase_text);
+        if (quiz_finished) {
+          qInfo() << "typed " << uppercase_text << " too late";
+        } else {
+          question->markAnswer(uppercase_text);
+        }
       }
       answer_line_edit->setText("");
     }
@@ -78,9 +96,11 @@ class Wordmonger : public QMainWindow {
 
  protected:
   void resizeEvent(QResizeEvent* event) override;
+  void timerEvent(QTimerEvent *event) override;
 
  private:
-  void loadWords();
+  void chooseWords();
+  void loadSingleAnagramWords();
   std::vector<QuestionAndAnswer> questions_and_answers;
   void addQuestions();
   QGridLayout* questions_layout;
@@ -92,6 +112,13 @@ class Wordmonger : public QMainWindow {
   std::set<QString> csw;
 
   QLineEdit* answer_line_edit;
+  WordStatusBar* word_status_bar;
+
+  int timer_millis;
+  bool time_expired;
+  bool quiz_finished;
+  QElapsedTimer elapsed_timer;
+  QBasicTimer timer;
 
   static Wordmonger* m_self;
 };
