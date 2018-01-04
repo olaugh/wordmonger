@@ -1,6 +1,7 @@
 #ifndef WORDMONGER_H
 #define WORDMONGER_H
 
+#include <QGraphicsBlurEffect>
 #include <QDebug>
 #include <QTimer>
 #include <QElapsedTimer>
@@ -13,20 +14,27 @@
 #include <set>
 #include <vector>
 
+#include "fixed_string.h"
+
 class QLineEdit;
 
 class Question : public QWidget {
  public:
   Question(QWidget* parent = 0);
   Question(QWidget* parent = 0, int index = -1);
-  void markAnswer(const QString& answer);
-
+  void MarkAnswer(const QString& answer);
+  bool IsAllSolved() const;
+  void SetBlurRadius(int radius) {
+    blur_effect->setBlurRadius(radius);
+    setGraphicsEffect(blur_effect);
+  }
  protected:
   void paintEvent(QPaintEvent* event);
 
  private:
   int index;
   std::set<int> solved_answer_indices;
+  QGraphicsBlurEffect* blur_effect;
 };
 
 class WordStatusBar : public QWidget {
@@ -46,8 +54,8 @@ class WordStatusBar : public QWidget {
 class QuestionAndAnswer {
  public:
   QuestionAndAnswer(const QString& clue, const std::vector<QString>& answers);
-  QString getClue() const;
-  const std::vector<QString>& getAnswers() const {
+  QString GetClue() const;
+  const std::vector<QString>& GetAnswers() const {
     return answers;
   }
 
@@ -66,6 +74,7 @@ class Wordmonger : public QMainWindow {
   const QuestionAndAnswer& QuestionAndAnswerAt(int i) const {
     return questions_and_answers[i];
   }
+  void CheckIfQuizFinished();
   bool QuizFinished() const { return quiz_finished; }
   bool IsTwl(QString word) const {
     return twl.count(word) > 0;
@@ -75,7 +84,7 @@ class Wordmonger : public QMainWindow {
 
  public slots:
   void textChangedSlot(QString text) {
-    //qInfo() << "text: " << text;
+    // qInfo() << "text: " << text;
     QString uppercase_text = text.toUpper();
     if (text == uppercase_text) return;
 
@@ -89,7 +98,7 @@ class Wordmonger : public QMainWindow {
         if (quiz_finished) {
           qInfo() << "typed " << uppercase_text << " too late";
         } else {
-          question->markAnswer(uppercase_text);
+          question->MarkAnswer(uppercase_text);
         }
       }
       answer_line_edit->setText("");

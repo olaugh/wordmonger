@@ -3,7 +3,9 @@
 #include <QtGui>
 #include <QtWidgets>
 
+#include "gaddag_maker.h"
 #include "wordmonger.h"
+
 
 Wordmonger* Wordmonger::self = 0;
 Wordmonger* Wordmonger::get() { return self; }
@@ -46,7 +48,7 @@ void Wordmonger::CreateWidgets() {
 }
 
 void Wordmonger::StartTimer() {
-  timer_millis = 20 * 1000;
+  timer_millis = 180 * 1000;
   elapsed_timer.start();
   timer.start(1000 / 60, this);
   time_expired = false;
@@ -56,6 +58,10 @@ void Wordmonger::StartTimer() {
 void Wordmonger::LoadDictionaries() {
   LoadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
   LoadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
+
+  GaddagMaker gaddag_maker;
+  gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw15.txt",
+                          "/Users/johnolaughlin/scrabble/csw15.gaddag");
 }
 
 void Wordmonger::timerEvent(QTimerEvent *event) {
@@ -67,11 +73,13 @@ void Wordmonger::timerEvent(QTimerEvent *event) {
     return;
   }
   timer_millis -= elapsed_timer.restart();
+  //int radius = (180 * 1000 - timer_millis) / 1000;
   if (timer_millis <= 0) {
       time_expired = true;
       quiz_finished = true;
       timer_millis = 0;
       for (Question* q : questions) {
+        //q->SetBlurRadius(radius);
         q->update();
       }
   }
@@ -135,7 +143,7 @@ namespace {
   }
 }  // namespace
 
-QString QuestionAndAnswer::getClue() const {
+QString QuestionAndAnswer::GetClue() const {
   return alphagram(clue);
 }
 
@@ -144,7 +152,7 @@ void Wordmonger::AddQuestions() {
  for (int col = 0; col < 5; col++) {
    for (int row = 0; row < 9;) {
      const std::vector<QString>& answers =
-         questions_and_answers[i].getAnswers();
+         questions_and_answers[i].GetAnswers();
      if (answers.size() + row > 9) {
        break;
      }
@@ -160,6 +168,16 @@ void Wordmonger::AddQuestions() {
   }
 }
 
+void Wordmonger::CheckIfQuizFinished() {
+  for (Question* question : questions) {
+    if (!question->IsAllSolved()) {
+      return;
+    }
+  }
+  quiz_finished = true;
+  word_status_bar->update();
+}
+
 WordStatusBar::WordStatusBar(QWidget *parent) {}
 
 void WordStatusBar::paintEvent(QPaintEvent* event) {
@@ -168,7 +186,8 @@ void WordStatusBar::paintEvent(QPaintEvent* event) {
   painter.eraseRect(event->rect());
 
   double time_seconds = time_millis / 1000.0;
-  const int decimal_places = time_seconds < 10 ? 1 : 0;
+  const int decimal_places =
+    (Wordmonger::get()->QuizFinished() || time_seconds < 10) ? 1 : 0;
   QString time_string = QString::number(time_seconds, 'f', decimal_places);
 
   QFont font("Futura", font_size);
@@ -183,14 +202,25 @@ void WordStatusBar::paintEvent(QPaintEvent* event) {
   painter.drawText(x, y, time_string);
 }
 
-Question::Question(QWidget* parent, int index) { this->index = index; }
+Question::Question(QWidget* parent, int index) {
+  this->index = index;
+  blur_effect = new QGraphicsBlurEffect(this);
+  blur_effect->setBlurRadius(0);
+  setGraphicsEffect(blur_effect);
+}
 
-void Question::markAnswer(const QString& given_answer) {
-  qInfo() << "markAnswer(" << given_answer << ")...";
+bool Question::IsAllSolved() const {
+  const QuestionAndAnswer& q_and_a =
+    Wordmonger::get()->QuestionAndAnswerAt(index);
+  return solved_answer_indices.size() == q_and_a.GetAnswers().size();
+}
+
+void Question::MarkAnswer(const QString& given_answer) {
+  qInfo() << "MarkAnswer(" << given_answer << ")...";
   const QuestionAndAnswer& q_and_a =
       Wordmonger::get()->QuestionAndAnswerAt(index);
   int answer_index = 0;
-  for (const QString answer : q_and_a.getAnswers()) {
+  for (const QString answer : q_and_a.GetAnswers()) {
     qInfo() << "answer: " << answer;
     if (answer == given_answer) {
       qInfo() << "solved answer #" << answer_index;
@@ -199,19 +229,20 @@ void Question::markAnswer(const QString& given_answer) {
     answer_index++;
     qInfo() << "new answer_index: " << answer_index;
   }
+  Wordmonger::get()->CheckIfQuizFinished();
   update();
 }
 
 void Question::paintEvent(QPaintEvent* event) {
   const QuestionAndAnswer& q_and_a =
       Wordmonger::get()->QuestionAndAnswerAt(index);
-  const QString clue = q_and_a.getClue();
+  const QString clue = q_and_a.GetClue();
   const bool quiz_finished = Wordmonger::get()->QuizFinished();
   QPainter painter;
   painter.begin(this);
   painter.eraseRect(event->rect());
   int clue_height = height();
-  const auto& answers = q_and_a.getAnswers();
+  const auto& answers = q_and_a.GetAnswers();
   int num_subcells = 1;
   const bool partially_revealed =
       !quiz_finished && (solved_answer_indices.size() > 0) &&
@@ -296,7 +327,7 @@ void Question::paintEvent(QPaintEvent* event) {
       painter.setPen({0, 0, 0, 96});
       painter.drawRect(border_rect);
 
-      const QString& answer = q_and_a.getAnswers()[i];
+      const QString& answer = q_and_a.GetAnswers()[i];
       QString display_answer = answer;
       const bool solved_this_answer = solved_answer_indices.count(i) > 0;
       if (!quiz_finished && !solved_this_answer) {
@@ -361,7 +392,7 @@ void Wordmonger::ChooseWords() {
   std::random_shuffle(pairs.begin(), pairs.end());
   int i = 0;
   for (const auto& pair : pairs) {
-    if (pair.second.size() != 3) {
+    if (pair.second.size() != 1) {
       continue;
     }
     if (i >= 45) {

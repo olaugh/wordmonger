@@ -23,8 +23,11 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
-SOURCES += main.cpp wordmonger.cpp
+SOURCES += main.cpp wordmonger.cpp \
+    gaddag_maker.cpp
 
-HEADERS += wordmonger.h
+HEADERS += wordmonger.h \
+    gaddag_maker.h \
+    fixed_string.h
 
 FORMS +=
