@@ -24,10 +24,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 
 SOURCES += main.cpp wordmonger.cpp \
-    gaddag_maker.cpp
+    gaddag_maker.cpp \
+    gaddag.cpp \
+    util.cpp
 
 HEADERS += wordmonger.h \
     gaddag_maker.h \
-    fixed_string.h
+    fixed_string.h \
+    gaddag.h \
+    util.h
 
 FORMS +=

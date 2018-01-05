@@ -6,9 +6,9 @@
 #include <QCryptographicHash>
 
 #include "gaddag_maker.h"
+#include "util.h"
 
 constexpr int kGaddagVersion = 2;
-constexpr int LAST_LETTER = 26;
 
 GaddagMaker::GaddagMaker() {
   root.terminates = false;
@@ -50,27 +50,13 @@ void GaddagMaker::HashWord(const WordString& word) {
 }
 
 bool GaddagMaker::GaddagizeWord(const QString& word) {
-  const WordString word_string = EncodeWord(word);
+  const WordString word_string = Util::EncodeWord(word);
   if (word_string.empty()) {
     return false;
   }
   HashWord(word_string);
   GaddagizeWord(word_string);
   return true;
-}
-
-WordString GaddagMaker::EncodeWord(const QString& word) {
-  //qInfo() << "EncodeWord(" << word << ")";
-  WordString word_string;
-  for (const auto& c : word) {
-    //qInfo() << "c: " << c;
-    word_string.push_back(EncodeLetter(c));
-  }
-  return word_string;
-}
-
-Letter GaddagMaker::EncodeLetter(const QChar& c) {
- return FIRST_LETTER + c.toUpper().toLatin1() - 'A';
 }
 
 void GaddagMaker::GaddagizeWord(const WordString& word) {

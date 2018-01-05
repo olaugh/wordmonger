@@ -2,9 +2,8 @@
 #define GADDAG_MAKER_H
 
 #include "fixed_string.h"
+#include "util.h"
 
-using Letter = char;
-using WordString = FixedString;
 using std::map;
 using std::vector;
 
@@ -41,8 +40,6 @@ class GaddagMaker {
 
   bool GaddagizeWord(const QString& word);
   void GaddagizeWord(const WordString &word);
-  WordString EncodeWord(const QString& word);
-  Letter EncodeLetter(const QChar& c);
   void HashWord(const WordString& word);
   void Generate();
   bool Write(const QString& output_path);

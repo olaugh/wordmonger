@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "fixed_string.h"
+#include "gaddag.h"
 
 class QLineEdit;
 
@@ -116,14 +117,23 @@ class Wordmonger : public QMainWindow {
   void LoadSingleAnagramWords();
   std::vector<QuestionAndAnswer> questions_and_answers;
   void AddQuestions();
+
   QGridLayout* questions_layout;
   std::vector<Question*> questions;
   std::map<QString, std::vector<Question*>> answer_map;
 
   void LoadDictionaries();
   void LoadDictionary(const QString& path, std::set<QString>* dict);
+  void LoadGaddag(const QString& path);
+  void TestGaddag();
+  void Anagram(const unsigned char* node, int* counts,
+               uint32_t rack_bits, WordString* prefix,
+               std::vector<WordString>* anagrams);
+
   std::set<QString> twl;
   std::set<QString> csw;
+  char* gaddag_bytes_;
+  Gaddag* gaddag_;
 
   QLineEdit* answer_line_edit;
   WordStatusBar* word_status_bar;

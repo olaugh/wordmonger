@@ -3,9 +3,10 @@
 #include <QtGui>
 #include <QtWidgets>
 
+#include "gaddag.h"
 #include "gaddag_maker.h"
+#include "util.h"
 #include "wordmonger.h"
-
 
 Wordmonger* Wordmonger::self = 0;
 Wordmonger* Wordmonger::get() { return self; }
@@ -59,9 +60,92 @@ void Wordmonger::LoadDictionaries() {
   LoadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
   LoadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
 
-  GaddagMaker gaddag_maker;
-  gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw15.txt",
-                          "/Users/johnolaughlin/scrabble/csw15.gaddag");
+  //GaddagMaker gaddag_maker;
+  //gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw15.txt",
+  //                        "/Users/johnolaughlin/scrabble/csw15.gaddag");
+  LoadGaddag("/Users/johnolaughlin/scrabble/csw15.gaddag");
+  TestGaddag();
+}
+
+void Wordmonger::TestGaddag() {
+  QString niobate = "NIOBATE";
+  WordString rack = Util::EncodeWord(niobate);
+  int counts[LAST_LETTER + 1];
+  for (int i = FIRST_LETTER; i <= LAST_LETTER; ++i) {
+    counts[i] = 0;
+  }
+  uint32_t rack_bits = 0;
+  for (Letter letter : rack) {
+    counts[letter]++;
+    rack_bits |= 1 << letter;
+  }
+  std::vector<WordString> anagrams;
+  WordString prefix;
+  Anagram(gaddag_->Root(), counts, rack_bits, &prefix, &anagrams);
+  for (const WordString& word : anagrams) {
+    //qInfo() << "word:" << Util::DecodeWord(word);
+  }
+  qInfo() << "found" << anagrams.size() << "words";
+}
+
+void Wordmonger::Anagram(const unsigned char* node, int* counts,
+                         uint32_t rack_bits, WordString* prefix,
+                         std::vector<WordString>* anagrams) {
+  if (gaddag_->HasAnyChild(node, rack_bits)) {
+    Letter min_letter = 0;
+    int child_index = 0;
+    for (;;) {
+      Letter found_letter;
+      const unsigned char* child = gaddag_->NextRackChild(
+          node, min_letter, rack_bits, &child_index, &found_letter);
+      if (child == nullptr) return;
+      prefix->push_back(found_letter);
+      counts[found_letter]--;
+      uint32_t found_letter_mask = 1 << found_letter;
+      if (counts[found_letter] == 0) {
+        rack_bits &= ~found_letter_mask;
+      }
+      if (gaddag_->CompletesWord(child)) {
+        anagrams->push_back(*prefix);
+      }
+      const unsigned char* new_node = gaddag_->FollowIndex(child);
+      if (new_node != nullptr) {
+        Anagram(new_node, counts, rack_bits, prefix, anagrams);
+      }
+      prefix->pop_back();
+      counts[found_letter]++;
+      rack_bits |= found_letter_mask;
+      min_letter = found_letter + 1;
+      ++child_index;
+    }
+  }
+}
+
+void Wordmonger::LoadGaddag(const QString& path) {
+  QFile input(path);
+  char version_byte;
+  if (input.open(QIODevice::ReadOnly)) {
+    input.getChar(&version_byte);
+    qInfo() << "version_byte:" << static_cast<int>(version_byte);
+    char hash[16];
+    input.read(hash, sizeof(hash));
+    const int root_pos = input.pos();
+
+    char last_letter;
+    input.getChar(&last_letter);
+    char bitset_size;
+    input.getChar(&bitset_size);
+    char index_size;
+    input.getChar(&index_size);
+
+    qInfo() << "root_pos:" << root_pos;
+    const int size = input.size() - root_pos;
+    qInfo() << "gaddag size:" << size;
+    gaddag_bytes_ = new char[size];
+    input.read(gaddag_bytes_, size);
+    gaddag_ = new Gaddag(gaddag_bytes_, last_letter, bitset_size, index_size);
+  }
+  input.close();
 }
 
 void Wordmonger::timerEvent(QTimerEvent *event) {
