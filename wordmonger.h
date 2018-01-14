@@ -113,6 +113,7 @@ class Wordmonger : public QMainWindow {
  private:
   void CreateWidgets();
   void ChooseWords();
+  void DrawRacks();
   void StartTimer();
   void LoadSingleAnagramWords();
   std::vector<QuestionAndAnswer> questions_and_answers;
@@ -126,9 +127,11 @@ class Wordmonger : public QMainWindow {
   void LoadDictionary(const QString& path, std::set<QString>* dict);
   void LoadGaddag(const QString& path);
   void TestGaddag();
-  void Anagram(const unsigned char* node, int* counts,
-               uint32_t rack_bits, WordString* prefix,
-               std::vector<WordString>* anagrams);
+  std::set<WordString> GetAnagrams(const WordString& rack,
+                                   bool must_use_all);
+  void Anagram(const unsigned char* node, int* used_counts, int* counts,
+               uint32_t used_bits, uint32_t rack_bits, WordString* prefix,
+               std::vector<WordString>* anagrams, bool must_use_all);
 
   std::set<QString> twl;
   std::set<QString> csw;

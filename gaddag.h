@@ -33,6 +33,16 @@ class Gaddag {
     return bitset_data + bitset_size_ + (index_size_ * (*child_index));
   }
 
+  inline const unsigned char* NextChild(const unsigned char* bitset_data,
+                                        Letter min_letter, int* child_index,
+                                        Letter* next_letter) const {
+    const uint32_t& bitset = *(reinterpret_cast<const uint32_t*>(bitset_data));
+    const uint32_t inverse_mask = (1 << min_letter) - 1;
+    *next_letter = __builtin_ffs(bitset & (~inverse_mask)) - 1;
+    if (*next_letter > last_letter_) return nullptr;
+    return bitset_data + bitset_size_ + (index_size_ * (*child_index));
+  }
+
   uint32_t SharedChildren(const unsigned char* bitset_data1,
                           const unsigned char* bitset_data2) const;
   uint32_t Intersection(const unsigned char* bitset_data,

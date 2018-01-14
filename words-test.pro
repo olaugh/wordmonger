@@ -32,6 +32,7 @@ HEADERS += wordmonger.h \
     gaddag_maker.h \
     fixed_string.h \
     gaddag.h \
-    util.h
+    util.h \
+    long_fixed_string.h
 
 FORMS +=

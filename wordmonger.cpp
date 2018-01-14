@@ -18,8 +18,16 @@ Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
   LoadDictionaries();
   CreateWidgets();
   ChooseWords();
+  DrawRacks();
   AddQuestions();
   StartTimer();
+}
+
+void Wordmonger::DrawRacks() {
+  srand(time(nullptr));
+  const Bag bag = Util::ScrabbleBag();
+  const WordString rack = Util::RandomRack(bag, 7);
+  qInfo() << "rack:" << Util::DecodeWord(rack);
 }
 
 void Wordmonger::CreateWidgets() {
@@ -64,57 +72,129 @@ void Wordmonger::LoadDictionaries() {
   //gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw15.txt",
   //                        "/Users/johnolaughlin/scrabble/csw15.gaddag");
   LoadGaddag("/Users/johnolaughlin/scrabble/csw15.gaddag");
-  TestGaddag();
+  //TestGaddag();
 }
 
-void Wordmonger::TestGaddag() {
-  QString niobate = "NIOBATE";
-  WordString rack = Util::EncodeWord(niobate);
+std::set<WordString> Wordmonger::GetAnagrams(const WordString& rack,
+                                             bool must_use_all) {
   int counts[LAST_LETTER + 1];
-  for (int i = FIRST_LETTER; i <= LAST_LETTER; ++i) {
+  int used_counts[LAST_LETTER + 1];
+  for (int i = BLANK; i <= LAST_LETTER; ++i) {
     counts[i] = 0;
+    used_counts[i] = 0;
   }
   uint32_t rack_bits = 0;
   for (Letter letter : rack) {
     counts[letter]++;
-    rack_bits |= 1 << letter;
+    if (letter != BLANK) {
+      rack_bits |= 1 << letter;
+    }
   }
+  //for (int i = BLANK; i <= LAST_LETTER; ++i) {
+  //  qInfo() << "i:" << i << "counts[i]:" << counts[i];
+  //}
   std::vector<WordString> anagrams;
   WordString prefix;
-  Anagram(gaddag_->Root(), counts, rack_bits, &prefix, &anagrams);
-  for (const WordString& word : anagrams) {
-    //qInfo() << "word:" << Util::DecodeWord(word);
-  }
-  qInfo() << "found" << anagrams.size() << "words";
+
+  int unused_bits = ~0;
+  Anagram(gaddag_->Root(), used_counts, counts, unused_bits, rack_bits, &prefix,
+          &anagrams, must_use_all);
+  std::set<WordString> unique_words(anagrams.begin(), anagrams.end());
+  //for (const WordString& word : unique_words) {
+  // qInfo() << "word:" << Util::DecodeWord(word);
+  //}
+  //qInfo() << "found" << unique_words.size() << "unique words";
+  return unique_words;
 }
 
-void Wordmonger::Anagram(const unsigned char* node, int* counts,
+void Wordmonger::TestGaddag() {
+  QString polish_blank = "POLISH??";
+  WordString rack = Util::EncodeWord(polish_blank);
+  std::set<WordString> unique_words = GetAnagrams(rack, true);
+  for (const WordString& word : unique_words) {
+    qInfo() << "word:" << Util::DecodeWord(word);
+  }
+  qInfo() << "found" << unique_words.size() << "unique words";
+}
+
+void Wordmonger::Anagram(const unsigned char* node, int* used_counts,
+                         int* counts, uint32_t unused_bits,
                          uint32_t rack_bits, WordString* prefix,
-                         std::vector<WordString>* anagrams) {
-  if (gaddag_->HasAnyChild(node, rack_bits)) {
+                         std::vector<WordString>* anagrams,
+                         bool must_use_all) {
+  /*
+  qInfo() << "Anagram(...) prefix:" << Util::DecodeWord(*prefix)
+          << "unused_bits:" << Util::DecodeBits(unused_bits)
+          << "rack_bits:" << Util::DecodeBits(rack_bits)
+          << "used_counts:" << Util::DecodeCounts(used_counts)
+          << "counts: " << Util::DecodeCounts(counts);
+          */
+  if (prefix->length() == 1) {
+    node = gaddag_->FollowIndex(gaddag_->ChangeDirection(node));
+  }
+  if (counts[BLANK] > 0 || gaddag_->HasAnyChild(node, rack_bits)) {
     Letter min_letter = 0;
     int child_index = 0;
     for (;;) {
       Letter found_letter;
-      const unsigned char* child = gaddag_->NextRackChild(
-          node, min_letter, rack_bits, &child_index, &found_letter);
-      if (child == nullptr) return;
-      prefix->push_back(found_letter);
-      counts[found_letter]--;
-      uint32_t found_letter_mask = 1 << found_letter;
-      if (counts[found_letter] == 0) {
-        rack_bits &= ~found_letter_mask;
+      const unsigned char* child = nullptr;
+      if (counts[BLANK] > 0) {
+        child =
+            gaddag_->NextRackChild(node, min_letter, unused_bits,
+                                   &child_index, &found_letter);
+        //assert(found_letter >= FIRST_LETTER);
+        //assert(found_letter <= LAST_LETTER);
+        if (child == nullptr) {
+          //qInfo() << "no child with letter past" << Util::DecodeLetter(min_letter);
+          return;
+        }
+        //qInfo() << "blank found_letter" << Util::DecodeLetter(found_letter);
+        prefix->push_back(found_letter);
+        counts[BLANK]--;
+        if (gaddag_->CompletesWord(child)) {
+          if (!must_use_all || (rack_bits == 0 && counts[BLANK] == 0)) {
+            anagrams->push_back(*prefix);
+          }
+        }
+        const unsigned char* new_node = gaddag_->FollowIndex(child);
+        if (new_node != nullptr) {
+          Anagram(new_node, used_counts, counts, unused_bits, rack_bits,
+                  prefix, anagrams, must_use_all);
+        } else {
+          //qInfo() << "no new node for blank letter";
+        }
+        prefix->pop_back();
+        counts[BLANK]++;
+      } else {
+        child = gaddag_->NextRackChild(node, min_letter, rack_bits,
+                                       &child_index, &found_letter);
+        if (child == nullptr) return;
       }
-      if (gaddag_->CompletesWord(child)) {
-        anagrams->push_back(*prefix);
+      if (counts[found_letter] > 0) {
+        prefix->push_back(found_letter);
+        counts[found_letter]--;
+        used_counts[found_letter]++;
+        const uint32_t found_letter_mask = 1 << found_letter;
+        if (counts[found_letter] == 0) {
+          rack_bits &= ~found_letter_mask;
+          unused_bits &= ~found_letter_mask;
+        }
+        if (gaddag_->CompletesWord(child)) {
+          if (!must_use_all || (rack_bits == 0 && counts[BLANK] == 0)) {
+            anagrams->push_back(*prefix);
+          }
+        }
+        const unsigned char* new_node = gaddag_->FollowIndex(child);
+        if (new_node != nullptr) {
+          Anagram(new_node, used_counts, counts, unused_bits, rack_bits,
+                  prefix, anagrams, must_use_all);
+        }
+        prefix->pop_back();
+        counts[found_letter]++;
+        used_counts[found_letter]--;
+        unused_bits |= found_letter_mask;
+        rack_bits |= found_letter_mask;
       }
-      const unsigned char* new_node = gaddag_->FollowIndex(child);
-      if (new_node != nullptr) {
-        Anagram(new_node, counts, rack_bits, prefix, anagrams);
-      }
-      prefix->pop_back();
-      counts[found_letter]++;
-      rack_bits |= found_letter_mask;
       min_letter = found_letter + 1;
       ++child_index;
     }
@@ -495,7 +575,7 @@ void Wordmonger::LoadSingleAnagramWords() {
     QTextStream in(&input);
     while (!in.atEnd() && i < 45) {
       QString word = in.readLine();
-      qInfo() << "word: " << word;
+      //qInfo() << "word: " << word;
       QuestionAndAnswer q_and_a(word, {word});
       questions_and_answers.push_back(q_and_a);
       ++i;
