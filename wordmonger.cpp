@@ -15,19 +15,96 @@ Wordmonger::~Wordmonger() {}
 Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
   self = this;
 
+  num_rows = 9;
+  num_cols = 5;
+  max_blank_words_per_rack = 5;
+  font_name = "Optima";
+  font_weight = QFont::Black;
+
+  CreateMenus();
   LoadDictionaries();
   CreateWidgets();
-  ChooseWords();
+  //ChooseWords();
   DrawRacks();
   AddQuestions();
   StartTimer();
 }
 
+void Wordmonger::CreateMenus() {
+  menu_bar = new QMenuBar(this);
+  pause_action = new QAction(tr("&Pause"), this);
+  pause_action->setShortcut(tr("Ctrl+P"));
+  connect(pause_action, SIGNAL(triggered()), this, SLOT(TogglePauseSlot()));
+  quiz_menu = menu_bar->addMenu(tr("&Quiz"));
+  quiz_menu->addAction(pause_action);
+}
+
+namespace {
+  QString Alphagram(const QString& word) {
+    std::map<QChar, int> counts;
+    for (const QChar& c : word) {
+      counts[c]++;
+    }
+    QString vowels;
+    QString consonants;
+    for (const auto& pair : counts) {
+      const QChar& c = pair.first;
+      for (int i = 0; i < pair.second; ++i) {
+        if (c == '?' || c == 'A' || c == 'E' || c == 'I' || c == 'O'
+            || c == "U") {
+          vowels += c;
+        } else {
+          consonants += c;
+        }
+      }
+    }
+    return vowels + consonants;
+  }
+}  // namespace
+
 void Wordmonger::DrawRacks() {
   srand(time(nullptr));
   const Bag bag = Util::ScrabbleBag();
-  const WordString rack = Util::RandomRack(bag, 7);
-  qInfo() << "rack:" << Util::DecodeWord(rack);
+  vector<int> column_starts;
+  std::set<QString> previous_answers;
+  for (size_t col = 0; col < num_cols; ++col) {
+    qInfo() << "col:" << col;
+    column_starts.push_back(questions_and_answers.size());
+    for (size_t row = 0; row < num_rows;) {
+      qInfo() << "row: " << row;
+      const size_t max_words_in_rack =
+          std::min(num_rows - row, max_blank_words_per_rack);
+      qInfo() << "max_words_in_rack:" << max_words_in_rack;
+      const WordString rack = Util::BlankRack(bag, 1, 7);
+      qInfo() << "rack:" << Util::DecodeWord(rack);
+      std::set<WordString> words = GetAnagrams(rack, true);
+      qInfo() << "words.size():" << words.size();
+      if (words.size() < 1 || words.size() > max_words_in_rack) {
+        continue;
+      }
+      const QString alpha = Alphagram(Util::DecodeWord(rack));
+      std::vector<QString> answers;
+      for (const WordString& word : words) {
+        answers.push_back(Util::DecodeWord(word));
+      }
+      for (const QString word : answers) {
+        if (previous_answers.count(word) > 0) {
+          continue;
+        }
+      }
+      for (const QString word : answers) {
+        previous_answers.insert(word);
+      }
+      QuestionAndAnswer q_and_a(alpha, answers);
+      questions_and_answers.push_back(q_and_a);
+      row += answers.size();
+    }
+  }
+  column_starts.push_back(questions_and_answers.size());
+  for (size_t i = 0; i < column_starts.size() - 1; i++) {
+    std::random_shuffle(questions_and_answers.begin() + column_starts[i],
+                        questions_and_answers.begin() + column_starts[i + 1]);
+  }
 }
 
 void Wordmonger::CreateWidgets() {
@@ -43,7 +120,7 @@ void Wordmonger::CreateWidgets() {
   answer_line_edit = new QLineEdit(central_widget);
   answer_line_edit->setAlignment(Qt::AlignHCenter);
   QObject::connect(answer_line_edit, SIGNAL(textChanged(QString)), this,
-                   SLOT(textChangedSlot(QString)));
+                   SLOT(TextChangedSlot(QString)));
 
   central_layout->addWidget(answer_line_edit);
 
@@ -62,6 +139,23 @@ void Wordmonger::StartTimer() {
   timer.start(1000 / 60, this);
   time_expired = false;
   quiz_finished = false;
+  paused = false;
+}
+
+void Wordmonger::PauseTimer() {
+  paused = true;
+  for (Question* q : questions) {
+    q->SetBlurRadius(20);
+    q->update();
+  }
+}
+
+void Wordmonger::UnpauseTimer() {
+  paused = false;
+  for (Question* q : questions) {
+    q->SetBlurRadius(0);
+    q->update();
+  }
 }
 
 void Wordmonger::LoadDictionaries() {
@@ -229,14 +323,15 @@ void Wordmonger::LoadGaddag(const QString& path) {
 }
 
 void Wordmonger::timerEvent(QTimerEvent *event) {
-  if (event->timerId() !=timer.timerId()) {
+  if (event->timerId() != timer.timerId()) {
     QWidget::timerEvent(event);
     return;
   }
-  if (time_expired || quiz_finished) {
+  if (paused || time_expired || quiz_finished) {
     return;
   }
-  timer_millis -= elapsed_timer.restart();
+  const qint64 elapsed = std::min(50LL, elapsed_timer.restart());
+  timer_millis -= elapsed;
   //int radius = (180 * 1000 - timer_millis) / 1000;
   if (timer_millis <= 0) {
       time_expired = true;
@@ -275,7 +370,8 @@ void Wordmonger::resizeEvent(QResizeEvent* event) {
           << questions_layout->horizontalSpacing();
 
   const int line_edit_font_size = std::min(18, std::max(12, height() / 35));
-  QFont font("Futura", line_edit_font_size);
+  QFont font(Wordmonger::get()->FontName(), line_edit_font_size,
+             Wordmonger::get()->FontWeight());
   qInfo() << "line_edit_font_size: " << line_edit_font_size;
   answer_line_edit->setFont(font);
 
@@ -285,39 +381,17 @@ void Wordmonger::resizeEvent(QResizeEvent* event) {
   word_status_bar->setMinimumHeight(line_edit_font_size * 1.75);
 }
 
-namespace {
-  QString alphagram(const QString& word) {
-    std::map<QChar, int> counts;
-    for (const QChar& c : word) {
-      counts[c]++;
-    }
-    QString vowels;
-    QString consonants;
-    for (const auto& pair : counts) {
-      const QChar& c = pair.first;
-      for (int i = 0; i < pair.second; ++i) {
-        if (c == 'A' || c == 'E' || c == 'I' || c == 'O' || c == "U") {
-          vowels += c;
-        } else {
-          consonants += c;
-        }
-      }
-    }
-    return vowels + consonants;
-  }
-}  // namespace
-
 QString QuestionAndAnswer::GetClue() const {
-  return alphagram(clue);
+  return Alphagram(clue);
 }
 
 void Wordmonger::AddQuestions() {
  int i = 0;
- for (int col = 0; col < 5; col++) {
-   for (int row = 0; row < 9;) {
+ for (size_t col = 0; col < num_cols; col++) {
+   for (size_t row = 0; row < num_rows;) {
      const std::vector<QString>& answers =
          questions_and_answers[i].GetAnswers();
-     if (answers.size() + row > 9) {
+     if (answers.size() + row > num_rows) {
        break;
      }
      Question* question = new Question(this, i);
@@ -354,7 +428,8 @@ void WordStatusBar::paintEvent(QPaintEvent* event) {
     (Wordmonger::get()->QuizFinished() || time_seconds < 10) ? 1 : 0;
   QString time_string = QString::number(time_seconds, 'f', decimal_places);
 
-  QFont font("Futura", font_size);
+  QFont font(Wordmonger::get()->FontName(), font_size,
+             Wordmonger::get()->FontWeight());
   QFontMetrics fm(font);
   int text_width = fm.width(time_string);
   int text_height = fm.height();
@@ -446,7 +521,8 @@ void Question::paintEvent(QPaintEvent* event) {
       painter.drawRect(border_rect);
     }
 
-    QFont font("Futura", clue_font_size);
+    QFont font(Wordmonger::get()->FontName(), clue_font_size,
+               Wordmonger::get()->FontWeight());
     QFontMetrics fm(font);
     int text_width = fm.width(clue);
     int text_height = fm.height();
@@ -455,13 +531,15 @@ void Question::paintEvent(QPaintEvent* event) {
     if (text_width > max_text_width) {
       clue_font_size = max_text_width * clue_font_size / text_width;
       clue_font_size = std::max(6, clue_font_size);
-      QFont smaller_font("Futura", clue_font_size);
+      QFont smaller_font(Wordmonger::get()->FontName(), clue_font_size,
+                         Wordmonger::get()->FontWeight());
       QFontMetrics fm(smaller_font);
       text_width = fm.width(clue);
       text_height = fm.height();
       descent = fm.descent();
     }
-    painter.setFont({"Futura", clue_font_size});
+    painter.setFont({Wordmonger::get()->FontName(), clue_font_size,
+                     Wordmonger::get()->FontWeight()});
 
     int x = 0.5 * (width() - text_width);
     int y = 0.5 * (clue_height + text_height) - descent;
@@ -501,7 +579,8 @@ void Question::paintEvent(QPaintEvent* event) {
         }
       }
       //qInfo() << "painting text for answer: " << answer;
-      QFont font("Futura", answer_font_size);
+      QFont font(Wordmonger::get()->FontName(), answer_font_size,
+                 Wordmonger::get()->FontWeight());
       QFontMetrics fm(font);
       int text_width = fm.width(display_answer);
       int text_height = fm.height();
@@ -510,14 +589,16 @@ void Question::paintEvent(QPaintEvent* event) {
       if (text_width > max_text_width) {
         answer_font_size = max_text_width * answer_font_size / text_width;
         answer_font_size = std::max(6, answer_font_size);
-        QFont smaller_font("Futura", answer_font_size);
+        QFont smaller_font(Wordmonger::get()->FontName(), answer_font_size,
+                           Wordmonger::get()->FontWeight());
         QFontMetrics fm(smaller_font);
-        text_width = fm.width(clue);
+        text_width = fm.width(answer);
         text_height = fm.height();
         descent = fm.descent();
       }
 
-      painter.setFont({"Futura", answer_font_size});
+      painter.setFont({Wordmonger::get()->FontName(), answer_font_size,
+                       Wordmonger::get()->FontWeight()});
       if (Wordmonger::get()->IsTwl(answer)) {
         painter.setPen({0, 0, 0, solved_this_answer ? 224 : 255});
       } else {
@@ -547,19 +628,19 @@ void Wordmonger::ChooseWords() {
     if (word.length() != 7) {
       continue;
     }
-    const QString alpha = alphagram(word);
+    const QString alpha = Alphagram(word);
     sets[alpha].push_back(word);
   }
 
   std::vector<std::pair<QString, std::vector<QString>>> pairs(
         sets.begin(), sets.end());
   std::random_shuffle(pairs.begin(), pairs.end());
-  int i = 0;
+  size_t i = 0;
   for (const auto& pair : pairs) {
     if (pair.second.size() != 1) {
       continue;
     }
-    if (i >= 45) {
+    if (i >= num_cols * num_rows) {
       return;
     }
     i++;

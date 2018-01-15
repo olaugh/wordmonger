@@ -19,6 +19,7 @@ using WordString = FixedString;
 class Util {
  public:
   static Bag ScrabbleBag();
+  static WordString BlankRack(const Bag& bag, int blanks, int size);
   static WordString RandomRack(const Bag& bag, int size);
 
   static WordString EncodeWord(const QString& word);

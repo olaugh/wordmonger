@@ -6,6 +6,25 @@ Bag Util::ScrabbleBag() {
   return EncodeBag(bag);
 }
 
+WordString Util::BlankRack(const Bag& bag, int blanks, int size) {
+  Bag bag_copy = bag;
+  WordString rack;
+  for (int i = 0; i < blanks; ++i) {
+    rack += BLANK;
+  }
+  for (int i = blanks; i < size;) {
+    const int letter_pos = rand() % bag.size();
+    const Letter c = bag_copy[letter_pos];
+    if (c >= FIRST_LETTER && c <= LAST_LETTER) {
+      rack += c;
+      i++;
+    } else {
+      bag_copy[letter_pos] = NOT_A_LETTER;
+    }
+  }
+  return rack;
+}
+
 WordString Util::RandomRack(const Bag& bag, int size) {
   Bag bag_copy = bag;
   WordString rack;

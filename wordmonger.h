@@ -80,11 +80,14 @@ class Wordmonger : public QMainWindow {
   bool IsTwl(QString word) const {
     return twl.count(word) > 0;
   }
-
+  QString FontName() const { return font_name; }
+  QFont::Weight FontWeight() const { return font_weight; }
   ~Wordmonger();
 
  public slots:
-  void textChangedSlot(QString text) {
+  void TogglePauseSlot() { paused ? UnpauseTimer() : PauseTimer(); }
+
+  void TextChangedSlot(QString text) {
     // qInfo() << "text: " << text;
     QString uppercase_text = text.toUpper();
     if (text == uppercase_text) return;
@@ -93,6 +96,10 @@ class Wordmonger : public QMainWindow {
     answer_line_edit->setText(uppercase_text);
     answer_line_edit->setCursorPosition(cursor_position);
 
+    if (paused) {
+      qInfo() << "The timer is paused.";
+      return;
+    }
     auto it = answer_map.find(uppercase_text);
     if (it != answer_map.end()) {
       for (Question* question : it->second) {
@@ -115,6 +122,8 @@ class Wordmonger : public QMainWindow {
   void ChooseWords();
   void DrawRacks();
   void StartTimer();
+  void PauseTimer();
+  void UnpauseTimer();
   void LoadSingleAnagramWords();
   std::vector<QuestionAndAnswer> questions_and_answers;
   void AddQuestions();
@@ -122,6 +131,11 @@ class Wordmonger : public QMainWindow {
   QGridLayout* questions_layout;
   std::vector<Question*> questions;
   std::map<QString, std::vector<Question*>> answer_map;
+
+  QMenuBar* menu_bar;
+  QAction* pause_action;
+  QMenu* quiz_menu;
+  void CreateMenus();
 
   void LoadDictionaries();
   void LoadDictionary(const QString& path, std::set<QString>* dict);
@@ -141,7 +155,14 @@ class Wordmonger : public QMainWindow {
   QLineEdit* answer_line_edit;
   WordStatusBar* word_status_bar;
 
+  size_t num_rows;
+  size_t num_cols;
+  size_t max_blank_words_per_rack;
+  QString font_name;
+  QFont::Weight font_weight;
+
   int timer_millis;
+  bool paused;
   bool time_expired;
   bool quiz_finished;
   QElapsedTimer elapsed_timer;
