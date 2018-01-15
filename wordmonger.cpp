@@ -87,11 +87,13 @@ void Wordmonger::DrawRacks() {
       for (const WordString& word : words) {
         answers.push_back(Util::DecodeWord(word));
       }
+      bool rack_has_repeat = false;
       for (const QString word : answers) {
         if (previous_answers.count(word) > 0) {
-          continue;
+          rack_has_repeat = true;
         }
       }
+      if (rack_has_repeat) continue;
       for (const QString word : answers) {
         previous_answers.insert(word);
       }
@@ -145,7 +147,7 @@ void Wordmonger::StartTimer() {
 void Wordmonger::PauseTimer() {
   paused = true;
   for (Question* q : questions) {
-    q->SetBlurRadius(20);
+    q->SetBlurRadius(35);
     q->update();
   }
 }
@@ -332,13 +334,19 @@ void Wordmonger::timerEvent(QTimerEvent *event) {
   }
   const qint64 elapsed = std::min(50LL, elapsed_timer.restart());
   timer_millis -= elapsed;
-  //int radius = (180 * 1000 - timer_millis) / 1000;
+  /*
+  int radius = (180 * 1000 - timer_millis) / 100;
+  qInfo() << "radius:" << radius;
+  for (Question* q : questions) {
+    q->SetBlurRadius(radius);
+    q->update();
+  }
+  */
   if (timer_millis <= 0) {
       time_expired = true;
       quiz_finished = true;
       timer_millis = 0;
       for (Question* q : questions) {
-        //q->SetBlurRadius(radius);
         q->update();
       }
   }
