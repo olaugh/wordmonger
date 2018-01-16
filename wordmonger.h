@@ -87,6 +87,10 @@ class Wordmonger : public QMainWindow {
  public slots:
   void TogglePauseSlot() { paused ? UnpauseTimer() : PauseTimer(); }
 
+  void ToggleFullscreenSlot() {
+    isMaximized() ? showNormal() : showMaximized();
+  }
+
   void TextChangedSlot(QString text) {
     // qInfo() << "text: " << text;
     QString uppercase_text = text.toUpper();
@@ -134,6 +138,7 @@ class Wordmonger : public QMainWindow {
 
   QMenuBar* menu_bar;
   QAction* pause_action;
+  QAction* fullscreen_action;
   QMenu* quiz_menu;
   void CreateMenus();
 

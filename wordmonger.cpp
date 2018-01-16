@@ -35,8 +35,15 @@ void Wordmonger::CreateMenus() {
   pause_action = new QAction(tr("&Pause"), this);
   pause_action->setShortcut(tr("Ctrl+P"));
   connect(pause_action, SIGNAL(triggered()), this, SLOT(TogglePauseSlot()));
+
+  fullscreen_action = new QAction(tr("&Fullscreen"), this);
+  fullscreen_action->setShortcut(tr("Ctrl+F"));
+  connect(fullscreen_action, SIGNAL(triggered()), this,
+          SLOT(ToggleFullscreenSlot()));
   quiz_menu = menu_bar->addMenu(tr("&Quiz"));
+  quiz_menu->addAction(fullscreen_action);
   quiz_menu->addAction(pause_action);
+
 }
 
 namespace {
