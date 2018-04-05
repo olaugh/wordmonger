@@ -12,7 +12,7 @@ using std::vector;
 
 class GaddagMaker {
  public:
-  GaddagMaker();
+  GaddagMaker(bool make_dawg, bool flip_endian);
   bool MakeGaddag(const QString& input_path,
                   const QString& output_path);
 
@@ -24,7 +24,8 @@ class GaddagMaker {
     const QByteArray& GetHash();
     bool SameAs(const Node& other) const;
     void Number(int* bitsets, int* indices);
-    QByteArray GetBytes(int num_child_bytes, int num_index_bytes) const;
+    QByteArray GetBytes(int num_child_bytes, int num_index_bytes,
+                        bool flip_endian) const;
     static void BinByHash(Node* node, map<QByteArray, vector<Node*>>* by_hash);
     static void MarkDuplicates(const map<QByteArray, vector<Node*>>& by_hash);
 
@@ -51,6 +52,8 @@ class GaddagMaker {
     char charptr[16];
     int32_t int32ptr[4];
   } hash;
+  bool make_dawg;
+  bool flip_endian;
 };
 
 #endif // GADDAG_MAKER_H

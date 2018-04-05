@@ -122,7 +122,9 @@ class Wordmonger : public QMainWindow {
   void timerEvent(QTimerEvent *event) override;
 
  private:
-  void CreateWidgets();
+  void CreateCentralWidgetAndLayout();
+  void CreateQuizChoiceWidgets();
+  void CreateGridQuizWidgets();
   void ChooseWords();
   void DrawRacks();
   void StartTimer();
@@ -132,6 +134,8 @@ class Wordmonger : public QMainWindow {
   std::vector<QuestionAndAnswer> questions_and_answers;
   void AddQuestions();
 
+  QWidget* central_widget;
+  QVBoxLayout* central_layout;
   QGridLayout* questions_layout;
   std::vector<Question*> questions;
   std::map<QString, std::vector<Question*>> answer_map;
@@ -167,6 +171,7 @@ class Wordmonger : public QMainWindow {
   QFont::Weight font_weight;
 
   int timer_millis;
+  bool choosing;
   bool paused;
   bool time_expired;
   bool quiz_finished;

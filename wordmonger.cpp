@@ -23,7 +23,10 @@ Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
 
   CreateMenus();
   LoadDictionaries();
-  CreateWidgets();
+  CreateCentralWidgetAndLayout();
+  //CreateQuizChoiceWidgets();
+  CreateGridQuizWidgets();
+
   //ChooseWords();
   DrawRacks();
   AddQuestions();
@@ -116,13 +119,23 @@ void Wordmonger::DrawRacks() {
   }
 }
 
-void Wordmonger::CreateWidgets() {
-  QWidget* central_widget = new QWidget(this);
-  QVBoxLayout* central_layout = new QVBoxLayout(central_widget);
+void Wordmonger::CreateCentralWidgetAndLayout() {
+  central_widget = new QWidget(this);
+  central_layout = new QVBoxLayout(central_widget);
   central_layout->setContentsMargins(0, 0, 0, 0);
   central_layout->setSpacing(0);
   setCentralWidget(central_widget);
 
+  setMinimumSize(640, 360);
+  resize(1080, 602);
+}
+
+void Wordmonger::CreateQuizChoiceWidgets() {
+  choosing = true;
+}
+
+void Wordmonger::CreateGridQuizWidgets() {
+  choosing = false;
   questions_layout = new QGridLayout;
   central_layout->addLayout(questions_layout);
 
@@ -137,9 +150,6 @@ void Wordmonger::CreateWidgets() {
   central_layout->addWidget(word_status_bar);
 
   central_layout->setStretchFactor(questions_layout, 3);
-
-  setMinimumSize(640, 360);
-  resize(1080, 602);
 }
 
 void Wordmonger::StartTimer() {
@@ -171,9 +181,9 @@ void Wordmonger::LoadDictionaries() {
   LoadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
   LoadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
 
-  //GaddagMaker gaddag_maker;
-  //gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw15.txt",
-  //                        "/Users/johnolaughlin/scrabble/csw15.gaddag");
+  GaddagMaker gaddag_maker(true, true);
+  gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw2to8.txt",
+                          "/Users/johnolaughlin/scrabble/CSW2TO8.DWG");
   LoadGaddag("/Users/johnolaughlin/scrabble/csw15.gaddag");
   //TestGaddag();
 }
@@ -336,7 +346,7 @@ void Wordmonger::timerEvent(QTimerEvent *event) {
     QWidget::timerEvent(event);
     return;
   }
-  if (paused || time_expired || quiz_finished) {
+  if (choosing || paused || time_expired || quiz_finished) {
     return;
   }
   const qint64 elapsed = std::min(50LL, elapsed_timer.restart());
@@ -363,6 +373,10 @@ void Wordmonger::timerEvent(QTimerEvent *event) {
 }
 
 void Wordmonger::resizeEvent(QResizeEvent* event) {
+  if (choosing) {
+    return;
+  }
+
   QLinearGradient linearGrad(0, 0, event->size().width(), event->size().height());
   linearGrad.setColorAt(0, QColor(202, 210, 220));
   linearGrad.setColorAt(0.5, QColor(210, 221, 225));

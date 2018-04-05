@@ -10,9 +10,11 @@
 
 constexpr int kGaddagVersion = 2;
 
-GaddagMaker::GaddagMaker() {
+GaddagMaker::GaddagMaker(bool make_dawg, bool flip_endian) {
   root.terminates = false;
   root.c = DELIMITER;
+  this->make_dawg = make_dawg;
+  this->flip_endian = flip_endian;
 }
 
 bool GaddagMaker::MakeGaddag(const QString& input_path,
@@ -60,7 +62,11 @@ bool GaddagMaker::GaddagizeWord(const QString& word) {
 }
 
 void GaddagMaker::GaddagizeWord(const WordString& word) {
-  for (size_t switch_index = 1; switch_index <= word.size(); ++switch_index) {
+  if (make_dawg) {
+    gaddag_patterns.push_back(word);
+    return;
+  }
+  for (size_t switch_index = 0; switch_index <= word.size(); ++switch_index) {
     WordString pattern;
     for (int i = switch_index - 1; i >= 0; --i) {
       pattern.push_back(word[i]);
@@ -150,16 +156,19 @@ bool GaddagMaker::Write(const QString& output_path) {
 }
 
 namespace {
-inline void ULongToBytes(unsigned long ulong, int length, char* bytes) {
+inline void ULongToBytes(unsigned long ulong, int length, char* bytes,
+                         bool flip_endian) {
   for (int i = 0; i < length; ++i) {
     const int shift = i * 8;
-    bytes[i] = (ulong >> shift) & 0xFF;
+    int dest_i = flip_endian ? length - 1 - i : i;
+    bytes[dest_i] = (ulong >> shift) & 0xFF;
   }
 }
 }  // namespace
 
 QByteArray GaddagMaker::Node::GetBytes(int num_child_bytes,
-                                       int num_index_bytes) const {
+                                       int num_index_bytes,
+                                       bool flip_endian) const {
   QByteArray ret;
   int num_child_pointer_bytes = children.size() * num_index_bytes;
   char child_pointer_bytes[num_child_pointer_bytes];
@@ -170,10 +179,13 @@ QByteArray GaddagMaker::Node::GetBytes(int num_child_bytes,
         (child.duplicate == nullptr) ? child : *child.duplicate;
     unsigned long child_index = num_child_bytes * child_for_pointer.bitsets +
                                 num_index_bytes * child_for_pointer.indices;
-    ULongToBytes(child_index, num_index_bytes, child_pointer_bytes + offset);
+    ULongToBytes(child_index, num_index_bytes, child_pointer_bytes + offset,
+                 flip_endian);
     if (child.terminates) {
       // set most significant bit to mark termination;
-      child_pointer_bytes[offset + num_index_bytes - 1] |= 0b10000000;
+      const int termination_byte_index = flip_endian ?
+            0 : num_index_bytes - 1;
+      child_pointer_bytes[offset + termination_byte_index] |= 0b10000000;
     }
     offset += num_index_bytes;
     Letter letter = child.c;
@@ -181,7 +193,7 @@ QByteArray GaddagMaker::Node::GetBytes(int num_child_bytes,
   }
   unsigned long child_bits_int = child_bits.to_ulong();
   char child_bytes[num_child_bytes];
-  ULongToBytes(child_bits_int, num_child_bytes, child_bytes);
+  ULongToBytes(child_bits_int, num_child_bytes, child_bytes, flip_endian);
   ret.append(child_bytes, num_child_bytes);
   ret.append(child_pointer_bytes, num_child_pointer_bytes);
   return ret;
@@ -189,7 +201,8 @@ QByteArray GaddagMaker::Node::GetBytes(int num_child_bytes,
 
 void GaddagMaker::Write(const Node& node, int num_child_bytes,
                         int num_index_bytes, QFile* output) {
-  QByteArray bytes = node.GetBytes(num_child_bytes, num_index_bytes);
+  QByteArray bytes = node.GetBytes(num_child_bytes, num_index_bytes,
+                                   flip_endian);
   output->write(bytes);
   for (const Node& child : node.children) {
     if (child.duplicate == nullptr && !child.children.empty()) {
