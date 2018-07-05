@@ -181,9 +181,11 @@ void Wordmonger::LoadDictionaries() {
   LoadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
   LoadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
 
-  GaddagMaker gaddag_maker(true, true);
-  gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw2to8.txt",
-                          "/Users/johnolaughlin/scrabble/CSW2TO8.DWG");
+  /*
+  GaddagMaker gaddag_maker(false, false);
+  gaddag_maker.MakeGaddag("/Users/johnolaughlin/scrabble/csw15.txt",
+                          "/Users/johnolaughlin/scrabble/csw15.gaddag");
+  */
   LoadGaddag("/Users/johnolaughlin/scrabble/csw15.gaddag");
   //TestGaddag();
 }
@@ -235,18 +237,16 @@ void Wordmonger::Anagram(const unsigned char* node, int* used_counts,
                          uint32_t rack_bits, WordString* prefix,
                          std::vector<WordString>* anagrams,
                          bool must_use_all) {
-  /*
-  qInfo() << "Anagram(...) prefix:" << Util::DecodeWord(*prefix)
-          << "unused_bits:" << Util::DecodeBits(unused_bits)
-          << "rack_bits:" << Util::DecodeBits(rack_bits)
-          << "used_counts:" << Util::DecodeCounts(used_counts)
-          << "counts: " << Util::DecodeCounts(counts);
-          */
+//  qInfo() << "Anagram(...) prefix:" << Util::DecodeWord(*prefix)
+//          << "unused_bits:" << Util::DecodeBits(unused_bits)
+//          << "rack_bits:" << Util::DecodeBits(rack_bits)
+//          << "used_counts:" << Util::DecodeCounts(used_counts)
+//          << "counts: " << Util::DecodeCounts(counts);
   if (prefix->length() == 1) {
     node = gaddag_->FollowIndex(gaddag_->ChangeDirection(node));
   }
   if (counts[BLANK] > 0 || gaddag_->HasAnyChild(node, rack_bits)) {
-    Letter min_letter = 0;
+    Letter min_letter = FIRST_LETTER;
     int child_index = 0;
     for (;;) {
       Letter found_letter;
@@ -255,12 +255,12 @@ void Wordmonger::Anagram(const unsigned char* node, int* used_counts,
         child =
             gaddag_->NextRackChild(node, min_letter, unused_bits,
                                    &child_index, &found_letter);
-        //assert(found_letter >= FIRST_LETTER);
-        //assert(found_letter <= LAST_LETTER);
         if (child == nullptr) {
           //qInfo() << "no child with letter past" << Util::DecodeLetter(min_letter);
           return;
         }
+        assert(found_letter >= FIRST_LETTER);
+        assert(found_letter <= LAST_LETTER);
         //qInfo() << "blank found_letter" << Util::DecodeLetter(found_letter);
         prefix->push_back(found_letter);
         counts[BLANK]--;
@@ -427,6 +427,7 @@ void Wordmonger::AddQuestions() {
      questions.push_back(question);
      questions_layout->addWidget(question, row, col, answers.size(), 1);
      for (const QString& answer : answers) {
+       //qInfo() << "answer: " << answer << " i: " << i;
        answer_map[answer].push_back(question);
      }
      row += answers.size();

@@ -92,7 +92,7 @@ class Wordmonger : public QMainWindow {
   }
 
   void TextChangedSlot(QString text) {
-    // qInfo() << "text: " << text;
+    //qInfo() << "TextChangedSlot(), text: " << text;
     QString uppercase_text = text.toUpper();
     if (text == uppercase_text) return;
 
