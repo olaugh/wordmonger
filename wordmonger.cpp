@@ -24,13 +24,13 @@ Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
   CreateMenus();
   LoadDictionaries();
   CreateCentralWidgetAndLayout();
-  //CreateQuizChoiceWidgets();
-  CreateGridQuizWidgets();
+  CreateQuizChoiceWidgets();
+  //CreateGridQuizWidgets();
 
   //ChooseWords();
-  DrawRacks();
-  AddQuestions();
-  StartTimer();
+  //DrawRacks();
+  //AddQuestions();
+  //StartTimer();
 }
 
 void Wordmonger::CreateMenus() {
@@ -132,6 +132,69 @@ void Wordmonger::CreateCentralWidgetAndLayout() {
 
 void Wordmonger::CreateQuizChoiceWidgets() {
   choosing = true;
+  choosers_layout = new QGridLayout();
+  central_layout->addLayout(choosers_layout);
+
+  quiz_chooser = new QuizChooser(central_widget);
+  choosers_layout->addWidget(quiz_chooser, 0, 0, 2, 1);
+  quiz_chooser_layout = new QVBoxLayout(quiz_chooser);
+  quiz_chooser_layout->setSpacing(0);
+
+  word_length = new ChooserButtonRow(quiz_chooser, "Word Length", BUTTONS);
+  word_length->AddButton("3", "length_3");
+  word_length->AddButton("4", "length_4");
+  word_length->AddButton("5", "length_5");
+  word_length->AddButton("6", "length_6");
+  word_length->AddButton("7", "length_7");
+  word_length->AddButton("8", "length_8");
+  word_length->AddButton("9", "length_9");
+  quiz_chooser_layout->addWidget(word_length);
+
+  word_builder = new ChooserButtonRow(quiz_chooser, "Word Builder", BUTTONS);
+  word_builder->AddButton("3-6", "builder_3_6");
+  word_builder->AddButton("4-7", "builder_4_7");
+  word_builder->AddButton("5-8", "builder_5_8");
+  quiz_chooser_layout->addWidget(word_builder);
+
+  blanks = new ChooserButtonRow(quiz_chooser, "Blanks", BUTTONS);
+  blanks->AddButton("6", "blanks_6");
+  blanks->AddButton("7", "blanks_7");
+  blanks->AddButton("8", "blanks_8");
+  blanks->AddButton("9", "blanks_9");
+  quiz_chooser_layout->addWidget(blanks);
+
+  num_solutions = new ChooserButtonRow(quiz_chooser, "Number of Solutions",
+                                       LINE_EDITS);
+  num_solutions->AddLabelledLineEdit("MIN", true);
+  num_solutions->AddLabelledLineEdit("MAX", true);
+  num_solutions->AddLineEditsStretch();
+  quiz_chooser_layout->addWidget(num_solutions);
+
+  rows_and_columns = new ChooserButtonRow(quiz_chooser, "Grid Size",
+                                          LINE_EDITS);
+  rows_and_columns->AddLabelledLineEdit("ROWS", true);
+  rows_and_columns->AddLabel("×");  // MULTIPLICATION SIGN (U+00D7)
+  rows_and_columns->AddLabelledLineEdit("COLS", true);
+  rows_and_columns->AddLabel("=");
+  rows_and_columns->AddLabelledLineEdit("WORDS", false);
+  rows_and_columns->AddLineEditsStretch();
+  quiz_chooser_layout->addWidget(rows_and_columns);
+
+  quiz_time = new ChooserButtonRow(quiz_chooser, "Time", LINE_EDITS);
+  quiz_chooser_layout->addWidget(quiz_time);
+
+  quiz_chooser_layout->setStretch(5, 1);
+
+  quiz_preview = new Preview(central_widget);
+  choosers_layout->addWidget(quiz_preview, 0, 1, 1, 1);
+
+  detail_chooser = new DetailChooser(central_widget);
+  choosers_layout->addWidget(detail_chooser, 1, 1, 1, 1);
+
+  choosers_layout->setColumnStretch(0, 2);
+  choosers_layout->setColumnStretch(1, 4);
+  choosers_layout->setRowStretch(0, 4);
+  choosers_layout->setRowStretch(1, 2);
 }
 
 void Wordmonger::CreateGridQuizWidgets() {
@@ -373,11 +436,28 @@ void Wordmonger::timerEvent(QTimerEvent *event) {
 }
 
 void Wordmonger::resizeEvent(QResizeEvent* event) {
+  QLinearGradient linearGrad(0, 0, event->size().width(), event->size().height());
+  int v_spacing = std::min(9, height() / 72);
+  int h_spacing = std::min(9, width() / 120);
+  const int spacing = std::min(v_spacing, h_spacing);
+
   if (choosing) {
+    linearGrad.setColorAt(0, QColor(220, 230, 240));
+    linearGrad.setColorAt(0.5, QColor(235, 240, 240));
+    linearGrad.setColorAt(1, QColor(225, 225, 230));
+
+    QPalette pal = palette();
+    QBrush brush(linearGrad);
+    pal.setBrush(QPalette::Window, brush);
+    setAutoFillBackground(true);
+    setPalette(pal);
+
+    choosers_layout->setContentsMargins(spacing, spacing, spacing, spacing);
+    choosers_layout->setHorizontalSpacing(spacing);
+    choosers_layout->setVerticalSpacing(spacing);
     return;
   }
 
-  QLinearGradient linearGrad(0, 0, event->size().width(), event->size().height());
   linearGrad.setColorAt(0, QColor(202, 210, 220));
   linearGrad.setColorAt(0.5, QColor(210, 221, 225));
   linearGrad.setColorAt(1, QColor(201, 207, 216));
@@ -388,9 +468,6 @@ void Wordmonger::resizeEvent(QResizeEvent* event) {
   setAutoFillBackground(true);
   setPalette(pal);
 
-  int v_spacing = std::min(9, height() / 72);
-  int h_spacing = std::min(9, width() / 120);
-  const int spacing = std::min(v_spacing, h_spacing);
   questions_layout->setContentsMargins(spacing, spacing, spacing, spacing);
   questions_layout->setHorizontalSpacing(spacing);
   questions_layout->setVerticalSpacing(spacing);
@@ -444,6 +521,200 @@ void Wordmonger::CheckIfQuizFinished() {
   }
   quiz_finished = true;
   word_status_bar->update();
+}
+
+QuizChooser::QuizChooser(QWidget *parent) {}
+
+void QuizChooser::resizeEvent(QResizeEvent *event) {
+  int v_spacing = std::max(4, height() / 100);
+  int h_spacing = std::max(4, width() / 80);
+  const int spacing = std::min(v_spacing, h_spacing);
+
+  QLinearGradient linearGrad(0, 0, event->size().width(),
+                             event->size().height());
+  linearGrad.setColorAt(0, QColor(202, 210, 220, 128));
+  linearGrad.setColorAt(0.5, QColor(210, 221, 225, 128));
+  linearGrad.setColorAt(1, QColor(201, 207, 216, 128));
+
+  QPalette pal = palette();
+  QBrush brush(linearGrad);
+  pal.setBrush(QPalette::Window, brush);
+  setAutoFillBackground(true);
+  setPalette(pal);
+
+  Wordmonger::get()->QuizChooserLayout()->setContentsMargins(
+        spacing, spacing, spacing, spacing);
+  Wordmonger::get()->QuizChooserLayout()->setSpacing(spacing);
+}
+
+ChooserButtonRow::ChooserButtonRow(QWidget *parent,
+                                   const QString& label_text,
+                                   ChooserType chooser_type) {
+  layout = new QVBoxLayout;
+  layout->setContentsMargins(4, 4, 4, 4);
+  layout->setSpacing(0);
+  setLayout(layout);
+  label = new QLabel(this);
+  label->setText(label_text);
+  label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+  layout->addWidget(label, 0, Qt::AlignTop);
+
+  switch (chooser_type) {
+    case BUTTONS:
+      buttons = new QWidget(this);
+      buttons->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+      buttons_layout = new QHBoxLayout;
+      buttons_layout->setSpacing(2);
+      buttons_layout->setContentsMargins(4, 4, 4, 4);
+      buttons->setLayout(buttons_layout);
+      layout->addWidget(buttons, 1, Qt::AlignTop);
+      break;
+   case LINE_EDITS:
+      line_edits = new QWidget(this);
+      line_edits->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+      line_edits_layout = new QHBoxLayout;
+      line_edits_layout->setSpacing(8);
+      line_edits_layout->setContentsMargins(4, 4, 4, 4);
+      line_edits->setLayout(line_edits_layout);
+      layout->addWidget(line_edits, 1, Qt::AlignTop);
+      break;
+  }
+}
+
+void ChooserButtonRow::AddButton(const QString& label, const QString& id) {
+  buttons_list << new QuizPushButton(buttons);
+  buttons_list.back()->setText(label);
+  buttons_list.back()->setCheckable(true);
+  buttons_list.back()->setStyleSheet(R"(
+    QPushButton {
+      background-color: rgba(255, 255, 255, 50%);
+      color: rgba(0, 0, 0, 80%);
+      border-style: solid;
+      border-color: #404040;
+      border-width: 1px;
+    }
+    QPushButton:hover {
+      background-color: rgba(240, 240, 240, 50%);
+    }
+    QPushButton:pressed {
+      background-color: rgba(68, 125, 140, 30%);
+    }
+    QPushButton:checked {
+      background-color: rgba(88, 125, 140, 40%);
+      color: rgba(20, 20, 20, 100%);
+    }
+  )");
+  QFont font(Wordmonger::get()->FontName(), 20,
+             Wordmonger::get()->FontWeight());
+  buttons_list.back()->setFont(font);
+  buttons_layout->addWidget(buttons_list.back(), 0, Qt::AlignTop);
+}
+
+void ChooserButtonRow::AddLabelledLineEdit(const QString& label,
+                                           bool editable) {
+  line_edits_list << new LabelledLineEdit(line_edits, label, editable);
+  line_edits_layout->addWidget(line_edits_list.back());
+}
+
+void ChooserButtonRow::AddLabel(const QString& label_text) {
+  QLabel* label = new QLabel;
+  label->setText(label_text);
+  QFont font(Wordmonger::get()->FontName(), 20,
+             Wordmonger::get()->FontWeight());
+  label->setFont(font);
+  label->setContentsMargins(0, 16, 0, 0);
+  line_edits_list << label;
+  line_edits_layout->addWidget(line_edits_list.back());
+}
+
+void ChooserButtonRow::AddLineEditsStretch() {
+  line_edits_layout->addStretch(1);
+}
+
+QuizPushButton::QuizPushButton(QWidget *parent) {}
+
+void ChooserButtonRow::resizeEvent(QResizeEvent *event) {
+  QLinearGradient linearGrad(0, 0, event->size().width(),
+                             event->size().height());
+  linearGrad.setColorAt(0, QColor(250, 250, 250, 128));
+  linearGrad.setColorAt(0.5, QColor(255, 255, 225, 128));
+  linearGrad.setColorAt(1, QColor(250, 250, 250, 128));
+
+  QPalette pal = palette();
+  QBrush brush(linearGrad);
+  pal.setBrush(QPalette::Window, brush);
+  setAutoFillBackground(true);
+  setPalette(pal);
+
+  if (buttons_list.size() > 0) {
+    const int button_height =
+        std::min(0.9 * event->size().width() / buttons_list.size(),
+                 0.6 * event->size().height());
+    for (QWidget* button : buttons_list) {
+      button->setMinimumHeight(button_height);
+    }
+  }
+}
+
+LabelledLineEdit::LabelledLineEdit(QWidget *parent, const QString& label_text,
+                                   bool editable) {
+  layout = new QVBoxLayout;
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(4);
+  setLayout(layout);
+
+  label = new QLabel(this);
+  label->setText(label_text);
+  QFont font(Wordmonger::get()->FontName(), 12,
+             Wordmonger::get()->FontWeight());
+  label->setFont(font);
+  label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+  layout->addWidget(label, 0, Qt::AlignTop);
+
+  line_edit = new QLineEdit(this);
+  QFont line_edit_font(Wordmonger::get()->FontName(), 18,
+                       Wordmonger::get()->FontWeight());
+  line_edit->setFont(line_edit_font);
+  line_edit->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+  line_edit->setFixedWidth(36);
+  if (editable) {
+    line_edit->setValidator(new QIntValidator(1, 99, this));
+  } else {
+    line_edit->setDisabled(true);
+  }
+  layout->addWidget(line_edit, 0, Qt::AlignTop);
+}
+
+Preview::Preview(QWidget *parent) {}
+
+void Preview::resizeEvent(QResizeEvent *event) {
+  QLinearGradient linearGrad(0, 0, event->size().width(),
+                             event->size().height());
+  linearGrad.setColorAt(0, QColor(202, 210, 220));
+  linearGrad.setColorAt(0.5, QColor(210, 221, 225));
+  linearGrad.setColorAt(1, QColor(201, 207, 216));
+
+  QPalette pal = palette();
+  QBrush brush(linearGrad);
+  pal.setBrush(QPalette::Window, brush);
+  setAutoFillBackground(true);
+  setPalette(pal);
+}
+
+DetailChooser::DetailChooser(QWidget *parent) {}
+
+void DetailChooser::resizeEvent(QResizeEvent *event) {
+  QLinearGradient linearGrad(0, 0, event->size().width(),
+                             event->size().height());
+  linearGrad.setColorAt(0, QColor(202, 210, 220, 128));
+  linearGrad.setColorAt(0.5, QColor(210, 221, 225, 128));
+  linearGrad.setColorAt(1, QColor(201, 207, 216, 128));
+
+  QPalette pal = palette();
+  QBrush brush(linearGrad);
+  pal.setBrush(QPalette::Window, brush);
+  setAutoFillBackground(true);
+  setPalette(pal);
 }
 
 WordStatusBar::WordStatusBar(QWidget *parent) {}

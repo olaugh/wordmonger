@@ -3,9 +3,11 @@
 
 #include <QGraphicsBlurEffect>
 #include <QDebug>
+#include <QLabel>
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QGridLayout>
+#include <QPushButton>
 #include <QMainWindow>
 #include <QObject>
 #include <QLineEdit>
@@ -18,6 +20,67 @@
 #include "gaddag.h"
 
 class QLineEdit;
+
+class QuizChooser : public QWidget {
+ public:
+  QuizChooser(QWidget* parent = 0);
+
+ protected:
+  void resizeEvent(QResizeEvent *event);
+};
+
+enum ChooserType { BUTTONS, LINE_EDITS };
+
+class ChooserButtonRow : public QWidget {
+ public:
+  ChooserButtonRow(QWidget* parent = 0,
+                   const QString& label_text = "",
+                   ChooserType chooser_type = BUTTONS);
+  void AddButton(const QString& label_text, const QString& id);
+  void AddLabelledLineEdit(const QString& label, bool editable);
+  void AddLabel(const QString& label_text);
+  void AddLineEditsStretch();
+
+ protected:
+  void resizeEvent(QResizeEvent *event);
+
+ private:
+  QVBoxLayout* layout;
+  QList<QPushButton*> buttons_list;
+  QList<QWidget*> line_edits_list;
+  QWidget* buttons;
+  QHBoxLayout* buttons_layout;
+  QWidget* line_edits;
+  QHBoxLayout* line_edits_layout;
+  QLabel* label;
+};
+
+class LabelledLineEdit : public QWidget {
+ public:
+  LabelledLineEdit(QWidget* parent = 0,
+                   const QString& label_text = "",
+                   bool editable = true);
+private:
+  QVBoxLayout* layout;
+  QLabel* label;
+  QLineEdit* line_edit;
+};
+
+class Preview : public QWidget {
+ public:
+  Preview(QWidget* parent = 0);
+
+ protected:
+  void resizeEvent(QResizeEvent* event);
+};
+
+class DetailChooser : public QWidget {
+ public:
+  DetailChooser(QWidget* parent = 0);
+
+ protected:
+  void resizeEvent(QResizeEvent* event);
+};
 
 class Question : public QWidget {
  public:
@@ -52,6 +115,11 @@ class WordStatusBar : public QWidget {
 
 };
 
+class QuizPushButton : public QPushButton {
+ public:
+  QuizPushButton(QWidget* parent = 0);
+};
+
 class QuestionAndAnswer {
  public:
   QuestionAndAnswer(const QString& clue, const std::vector<QString>& answers);
@@ -82,6 +150,8 @@ class Wordmonger : public QMainWindow {
   }
   QString FontName() const { return font_name; }
   QFont::Weight FontWeight() const { return font_weight; }
+  QVBoxLayout* QuizChooserLayout() {return quiz_chooser_layout; }
+
   ~Wordmonger();
 
  public slots:
@@ -136,6 +206,21 @@ class Wordmonger : public QMainWindow {
 
   QWidget* central_widget;
   QVBoxLayout* central_layout;
+
+  QuizChooser* quiz_chooser;
+  QVBoxLayout* quiz_chooser_layout;
+  ChooserButtonRow* word_length;
+  ChooserButtonRow* word_builder;
+  ChooserButtonRow* blanks;
+  ChooserButtonRow* num_solutions;
+  ChooserButtonRow* rows_and_columns;
+  ChooserButtonRow* quiz_time;
+
+  Preview* quiz_preview;
+  DetailChooser* detail_chooser;
+  QGridLayout* choosers_layout;
+
+
   QGridLayout* questions_layout;
   std::vector<Question*> questions;
   std::map<QString, std::vector<Question*>> answer_map;
