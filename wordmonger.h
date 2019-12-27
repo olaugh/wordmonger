@@ -37,7 +37,8 @@ class ChooserButtonRow : public QWidget {
                    const QString& label_text = "",
                    ChooserType chooser_type = BUTTONS);
   void AddButton(const QString& label_text, const QString& id);
-  void AddLabelledLineEdit(const QString& label, bool editable);
+  void AddLabelledLineEdit(const QString& label, int value,
+                           bool editable, QLineEdit** line_edit_ptr = nullptr);
   void AddLabel(const QString& label_text);
   void AddLineEditsStretch();
 
@@ -59,7 +60,9 @@ class LabelledLineEdit : public QWidget {
  public:
   LabelledLineEdit(QWidget* parent = 0,
                    const QString& label_text = "",
-                   bool editable = true);
+                   int value = 0,
+                   bool editable = true,
+                   QLineEdit** line_edit_ptr = nullptr);
 private:
   QVBoxLayout* layout;
   QLabel* label;
@@ -187,6 +190,24 @@ class Wordmonger : public QMainWindow {
     }
   }
 
+  void RowsChangedSlot(QString text) {
+    qInfo() << "RowsChangedSlot(), text: " << text;
+    if (!text.isEmpty() && cols_line_edit != nullptr &&
+        !cols_line_edit->text().isEmpty()) {
+      num_words_line_edit->setText(QString::number(
+                                     RequestedRows() * RequestedCols()));
+    }
+  }
+
+  void ColsChangedSlot(QString text) {
+    qInfo() << "ColsChangedSlot(), text: " << text;
+    if (!text.isEmpty() && rows_line_edit != nullptr &&
+        !rows_line_edit->text().isEmpty()) {
+      num_words_line_edit->setText(QString::number(
+                                     RequestedRows() * RequestedCols()));
+    }
+  }
+
  protected:
   void resizeEvent(QResizeEvent* event) override;
   void timerEvent(QTimerEvent *event) override;
@@ -203,6 +224,8 @@ class Wordmonger : public QMainWindow {
   void LoadSingleAnagramWords();
   std::vector<QuestionAndAnswer> questions_and_answers;
   void AddQuestions();
+  int RequestedRows();
+  int RequestedCols();
 
   QWidget* central_widget;
   QVBoxLayout* central_layout;
@@ -246,9 +269,15 @@ class Wordmonger : public QMainWindow {
   char* gaddag_bytes_;
   Gaddag* gaddag_;
 
-  QLineEdit* answer_line_edit;
+  QLineEdit* answer_line_edit = nullptr;
+  QLineEdit* rows_line_edit = nullptr;
+  QLineEdit* cols_line_edit = nullptr;
+  QLineEdit* num_words_line_edit = nullptr;
+
   WordStatusBar* word_status_bar;
 
+  size_t default_rows;
+  size_t default_cols;
   size_t num_rows;
   size_t num_cols;
   size_t max_blank_words_per_rack;

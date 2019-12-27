@@ -15,6 +15,9 @@ Wordmonger::~Wordmonger() {}
 Wordmonger::Wordmonger(QWidget* parent) : QMainWindow(parent) {
   self = this;
 
+  default_rows = 9;
+  default_cols = 5;
+
   num_rows = 9;
   num_cols = 5;
   max_blank_words_per_rack = 5;
@@ -156,7 +159,7 @@ void Wordmonger::CreateQuizChoiceWidgets() {
   word_builder->AddButton("5-8", "builder_5_8");
   quiz_chooser_layout->addWidget(word_builder);
 
-  blanks = new ChooserButtonRow(quiz_chooser, "Blanks", BUTTONS);
+  blanks = new ChooserButtonRow(quiz_chooser, "With Blanks", BUTTONS);
   blanks->AddButton("6", "blanks_6");
   blanks->AddButton("7", "blanks_7");
   blanks->AddButton("8", "blanks_8");
@@ -165,18 +168,23 @@ void Wordmonger::CreateQuizChoiceWidgets() {
 
   num_solutions = new ChooserButtonRow(quiz_chooser, "Number of Solutions",
                                        LINE_EDITS);
-  num_solutions->AddLabelledLineEdit("MIN", true);
-  num_solutions->AddLabelledLineEdit("MAX", true);
+  num_solutions->AddLabelledLineEdit("MIN", 1, true);
+  num_solutions->AddLabelledLineEdit("MAX", 1, true);
   num_solutions->AddLineEditsStretch();
   quiz_chooser_layout->addWidget(num_solutions);
 
   rows_and_columns = new ChooserButtonRow(quiz_chooser, "Grid Size",
                                           LINE_EDITS);
-  rows_and_columns->AddLabelledLineEdit("ROWS", true);
+  rows_and_columns->AddLabelledLineEdit("ROWS", 5, true, &rows_line_edit);
+  QObject::connect(rows_line_edit, SIGNAL(textChanged(QString)), this,
+                   SLOT(RowsChangedSlot(QString)));
   rows_and_columns->AddLabel("×");  // MULTIPLICATION SIGN (U+00D7)
-  rows_and_columns->AddLabelledLineEdit("COLS", true);
+  rows_and_columns->AddLabelledLineEdit("COLS", 9, true, &cols_line_edit);
+  QObject::connect(cols_line_edit, SIGNAL(textChanged(QString)), this,
+                   SLOT(ColsChangedSlot(QString)));
   rows_and_columns->AddLabel("=");
-  rows_and_columns->AddLabelledLineEdit("WORDS", false);
+  rows_and_columns->AddLabelledLineEdit("WORDS", 45, false,
+                                        &num_words_line_edit);
   rows_and_columns->AddLineEditsStretch();
   quiz_chooser_layout->addWidget(rows_and_columns);
 
@@ -195,6 +203,20 @@ void Wordmonger::CreateQuizChoiceWidgets() {
   choosers_layout->setColumnStretch(1, 4);
   choosers_layout->setRowStretch(0, 4);
   choosers_layout->setRowStretch(1, 2);
+}
+
+int Wordmonger::RequestedRows() {
+  if (rows_line_edit == nullptr) {
+    return default_rows;
+  }
+  return rows_line_edit->text().toInt();
+}
+
+int Wordmonger::RequestedCols() {
+  if (cols_line_edit == nullptr) {
+    return default_cols;
+  }
+  return cols_line_edit->text().toInt();
 }
 
 void Wordmonger::CreateGridQuizWidgets() {
@@ -611,8 +633,12 @@ void ChooserButtonRow::AddButton(const QString& label, const QString& id) {
 }
 
 void ChooserButtonRow::AddLabelledLineEdit(const QString& label,
-                                           bool editable) {
-  line_edits_list << new LabelledLineEdit(line_edits, label, editable);
+                                           int value,
+                                           bool editable,
+                                           QLineEdit** line_edit_ptr) {
+  LabelledLineEdit* lle =
+      new LabelledLineEdit(line_edits, label, value, editable, line_edit_ptr);
+  line_edits_list << lle;
   line_edits_layout->addWidget(line_edits_list.back());
 }
 
@@ -657,7 +683,8 @@ void ChooserButtonRow::resizeEvent(QResizeEvent *event) {
 }
 
 LabelledLineEdit::LabelledLineEdit(QWidget *parent, const QString& label_text,
-                                   bool editable) {
+                                   int value, bool editable,
+                                   QLineEdit** line_edit_ptr) {
   layout = new QVBoxLayout;
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(4);
@@ -681,6 +708,10 @@ LabelledLineEdit::LabelledLineEdit(QWidget *parent, const QString& label_text,
     line_edit->setValidator(new QIntValidator(1, 99, this));
   } else {
     line_edit->setDisabled(true);
+  }
+  line_edit->setText(QString::number(value));
+  if (line_edit_ptr != nullptr) {
+    *line_edit_ptr = line_edit;
   }
   layout->addWidget(line_edit, 0, Qt::AlignTop);
 }
