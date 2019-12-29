@@ -153,7 +153,8 @@ void Wordmonger::CreateQuizChoiceWidgets() {
   word_length->AddButton("9", "length_9");
   quiz_chooser_layout->addWidget(word_length);
 
-  word_builder = new ChooserButtonRow(quiz_chooser, "Word Builder", BUTTONS);
+  word_builder = new ChooserButtonRow(quiz_chooser, "Word Builder", BUTTONS,
+                                      ONE_IN_ROW);
   word_builder->AddButton("3-6", "builder_3_6");
   word_builder->AddButton("4-7", "builder_4_7");
   word_builder->AddButton("5-8", "builder_5_8");
@@ -571,7 +572,9 @@ void QuizChooser::resizeEvent(QResizeEvent *event) {
 
 ChooserButtonRow::ChooserButtonRow(QWidget *parent,
                                    const QString& label_text,
-                                   ChooserType chooser_type) {
+                                   ChooserType chooser_type,
+                                   enum ButtonType button_type) {
+  button_type_ = button_type;
   layout = new QVBoxLayout;
   layout->setContentsMargins(4, 4, 4, 4);
   layout->setSpacing(0);
@@ -604,7 +607,7 @@ ChooserButtonRow::ChooserButtonRow(QWidget *parent,
 }
 
 void ChooserButtonRow::AddButton(const QString& label, const QString& id) {
-  buttons_list << new QuizPushButton(buttons);
+  buttons_list << new QuizPushButton(this, buttons);
   buttons_list.back()->setText(label);
   buttons_list.back()->setCheckable(true);
   buttons_list.back()->setStyleSheet(R"(
@@ -629,6 +632,8 @@ void ChooserButtonRow::AddButton(const QString& label, const QString& id) {
   QFont font(Wordmonger::get()->FontName(), 20,
              Wordmonger::get()->FontWeight());
   buttons_list.back()->setFont(font);
+  connect(buttons_list.back(), SIGNAL(released()), Wordmonger::get(),
+                                      SLOT(ButtonReleasedSlot()));
   buttons_layout->addWidget(buttons_list.back(), 0, Qt::AlignTop);
 }
 
@@ -657,7 +662,9 @@ void ChooserButtonRow::AddLineEditsStretch() {
   line_edits_layout->addStretch(1);
 }
 
-QuizPushButton::QuizPushButton(QWidget *parent) {}
+QuizPushButton::QuizPushButton(ChooserButtonRow *parent_row, QWidget *parent) {
+  parent_row_ = parent_row;
+}
 
 void ChooserButtonRow::resizeEvent(QResizeEvent *event) {
   QLinearGradient linearGrad(0, 0, event->size().width(),

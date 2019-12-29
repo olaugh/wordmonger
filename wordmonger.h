@@ -20,6 +20,7 @@
 #include "gaddag.h"
 
 class QLineEdit;
+class QuizPushButton;
 
 class QuizChooser : public QWidget {
  public:
@@ -31,25 +32,30 @@ class QuizChooser : public QWidget {
 
 enum ChooserType { BUTTONS, LINE_EDITS };
 
+enum ButtonType { MULTIPLE_IN_ROW, ONE_IN_ROW };
+
 class ChooserButtonRow : public QWidget {
  public:
   ChooserButtonRow(QWidget* parent = 0,
                    const QString& label_text = "",
-                   ChooserType chooser_type = BUTTONS);
+                   ChooserType chooser_type = BUTTONS,
+                   ButtonType button_type = MULTIPLE_IN_ROW);
   void AddButton(const QString& label_text, const QString& id);
   void AddLabelledLineEdit(const QString& label, int value,
                            bool editable, QLineEdit** line_edit_ptr = nullptr);
   void AddLabel(const QString& label_text);
   void AddLineEditsStretch();
+  ButtonType ButtonType() const { return button_type_; }
+  QList<QuizPushButton*> buttons_list;
 
  protected:
   void resizeEvent(QResizeEvent *event);
 
  private:
   QVBoxLayout* layout;
-  QList<QPushButton*> buttons_list;
   QList<QWidget*> line_edits_list;
   QWidget* buttons;
+  enum ButtonType button_type_;
   QHBoxLayout* buttons_layout;
   QWidget* line_edits;
   QHBoxLayout* line_edits_layout;
@@ -120,7 +126,10 @@ class WordStatusBar : public QWidget {
 
 class QuizPushButton : public QPushButton {
  public:
-  QuizPushButton(QWidget* parent = 0);
+  QuizPushButton(ChooserButtonRow* parent_row, QWidget* parent = 0);
+  const ChooserButtonRow* ParentRow() const { return parent_row_; }
+ private:
+  const ChooserButtonRow* parent_row_;
 };
 
 class QuestionAndAnswer {
@@ -208,91 +217,121 @@ class Wordmonger : public QMainWindow {
     }
   }
 
- protected:
-  void resizeEvent(QResizeEvent* event) override;
-  void timerEvent(QTimerEvent *event) override;
+  void ButtonReleasedSlot() {
+    const QuizPushButton* sender_button = (const QuizPushButton*)sender();
+    qInfo() << "sender: " << sender_button->text();
+    if (!sender_button->isChecked()) {
+      qInfo() << "sender is not checked";
+      return;
+    }
+    const ChooserButtonRow* parent_row =
+        (const ChooserButtonRow*)sender_button->ParentRow();
+    const ButtonType button_type = parent_row->ButtonType();
+    for (ChooserButtonRow* row : {word_length, word_builder, blanks}) {
+      for (QPushButton* button : row->buttons_list) {
+        qInfo() << "button: " << button->text();
+        if (row != parent_row) {
+          qInfo() << "in different row, setChecked(false)";
+          button->setChecked(false);
+          continue;
+        }
+        if (button_type == MULTIPLE_IN_ROW) {
+          qInfo() << "in same row but allowing multiple";
+          continue;
+        }
+        if (button == sender()) {
+          qInfo() << "is sender";
+          continue;
+        }
+        qInfo() << "setChecked(false)";
+        button->setChecked(false);
+      }
+    }
+  }
 
- private:
-  void CreateCentralWidgetAndLayout();
-  void CreateQuizChoiceWidgets();
-  void CreateGridQuizWidgets();
-  void ChooseWords();
-  void DrawRacks();
-  void StartTimer();
-  void PauseTimer();
-  void UnpauseTimer();
-  void LoadSingleAnagramWords();
-  std::vector<QuestionAndAnswer> questions_and_answers;
-  void AddQuestions();
-  int RequestedRows();
-  int RequestedCols();
+   protected:
+    void resizeEvent(QResizeEvent * event) override;
+    void timerEvent(QTimerEvent * event) override;
 
-  QWidget* central_widget;
-  QVBoxLayout* central_layout;
+   private:
+    void CreateCentralWidgetAndLayout();
+    void CreateQuizChoiceWidgets();
+    void CreateGridQuizWidgets();
+    void ChooseWords();
+    void DrawRacks();
+    void StartTimer();
+    void PauseTimer();
+    void UnpauseTimer();
+    void LoadSingleAnagramWords();
+    std::vector<QuestionAndAnswer> questions_and_answers;
+    void AddQuestions();
+    int RequestedRows();
+    int RequestedCols();
 
-  QuizChooser* quiz_chooser;
-  QVBoxLayout* quiz_chooser_layout;
-  ChooserButtonRow* word_length;
-  ChooserButtonRow* word_builder;
-  ChooserButtonRow* blanks;
-  ChooserButtonRow* num_solutions;
-  ChooserButtonRow* rows_and_columns;
-  ChooserButtonRow* quiz_time;
+    QWidget* central_widget;
+    QVBoxLayout* central_layout;
 
-  Preview* quiz_preview;
-  DetailChooser* detail_chooser;
-  QGridLayout* choosers_layout;
+    QuizChooser* quiz_chooser;
+    QVBoxLayout* quiz_chooser_layout;
+    ChooserButtonRow* word_length;
+    ChooserButtonRow* word_builder;
+    ChooserButtonRow* blanks;
+    ChooserButtonRow* num_solutions;
+    ChooserButtonRow* rows_and_columns;
+    ChooserButtonRow* quiz_time;
 
+    Preview* quiz_preview;
+    DetailChooser* detail_chooser;
+    QGridLayout* choosers_layout;
 
-  QGridLayout* questions_layout;
-  std::vector<Question*> questions;
-  std::map<QString, std::vector<Question*>> answer_map;
+    QGridLayout* questions_layout;
+    std::vector<Question*> questions;
+    std::map<QString, std::vector<Question*>> answer_map;
 
-  QMenuBar* menu_bar;
-  QAction* pause_action;
-  QAction* fullscreen_action;
-  QMenu* quiz_menu;
-  void CreateMenus();
+    QMenuBar* menu_bar;
+    QAction* pause_action;
+    QAction* fullscreen_action;
+    QMenu* quiz_menu;
+    void CreateMenus();
 
-  void LoadDictionaries();
-  void LoadDictionary(const QString& path, std::set<QString>* dict);
-  void LoadGaddag(const QString& path);
-  void TestGaddag();
-  std::set<WordString> GetAnagrams(const WordString& rack,
-                                   bool must_use_all);
-  void Anagram(const unsigned char* node, int* used_counts, int* counts,
-               uint32_t used_bits, uint32_t rack_bits, WordString* prefix,
-               std::vector<WordString>* anagrams, bool must_use_all);
+    void LoadDictionaries();
+    void LoadDictionary(const QString& path, std::set<QString>* dict);
+    void LoadGaddag(const QString& path);
+    void TestGaddag();
+    std::set<WordString> GetAnagrams(const WordString& rack, bool must_use_all);
+    void Anagram(const unsigned char* node, int* used_counts, int* counts,
+                 uint32_t used_bits, uint32_t rack_bits, WordString* prefix,
+                 std::vector<WordString>* anagrams, bool must_use_all);
 
-  std::set<QString> twl;
-  std::set<QString> csw;
-  char* gaddag_bytes_;
-  Gaddag* gaddag_;
+    std::set<QString> twl;
+    std::set<QString> csw;
+    char* gaddag_bytes_;
+    Gaddag* gaddag_;
 
-  QLineEdit* answer_line_edit = nullptr;
-  QLineEdit* rows_line_edit = nullptr;
-  QLineEdit* cols_line_edit = nullptr;
-  QLineEdit* num_words_line_edit = nullptr;
+    QLineEdit* answer_line_edit = nullptr;
+    QLineEdit* rows_line_edit = nullptr;
+    QLineEdit* cols_line_edit = nullptr;
+    QLineEdit* num_words_line_edit = nullptr;
 
-  WordStatusBar* word_status_bar;
+    WordStatusBar* word_status_bar;
 
-  size_t default_rows;
-  size_t default_cols;
-  size_t num_rows;
-  size_t num_cols;
-  size_t max_blank_words_per_rack;
-  QString font_name;
-  QFont::Weight font_weight;
+    size_t default_rows;
+    size_t default_cols;
+    size_t num_rows;
+    size_t num_cols;
+    size_t max_blank_words_per_rack;
+    QString font_name;
+    QFont::Weight font_weight;
 
-  int timer_millis;
-  bool choosing;
-  bool paused;
-  bool time_expired;
-  bool quiz_finished;
-  QElapsedTimer elapsed_timer;
-  QBasicTimer timer;
+    int timer_millis;
+    bool choosing;
+    bool paused;
+    bool time_expired;
+    bool quiz_finished;
+    QElapsedTimer elapsed_timer;
+    QBasicTimer timer;
 
-  static Wordmonger* self;
+    static Wordmonger* self;
 };
 
 #endif  // WORDMONGER_H
