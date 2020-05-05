@@ -264,8 +264,8 @@ void Wordmonger::UnpauseTimer() {
 }
 
 void Wordmonger::LoadDictionaries() {
-  LoadDictionary("/Users/johnolaughlin/scrabble/csw15.txt", &csw);
-  LoadDictionary("/Users/johnolaughlin/scrabble/twl15.txt", &twl);
+  LoadDictionary("/Users/john/scrabble/csw.txt", &csw);
+  LoadDictionary("/Users/john/scrabble/twl.txt", &twl);
 
   /*
   GaddagMaker gaddag_maker(false, false);
