@@ -42,7 +42,8 @@ class ChooserButtonRow : public QWidget {
                    ButtonType button_type = MULTIPLE_IN_ROW);
   void AddButton(const QString& label_text, const QString& id);
   void AddLabelledLineEdit(const QString& label, int value,
-                           bool editable, QLineEdit** line_edit_ptr = nullptr);
+                           bool editable, QLineEdit** line_edit_ptr = nullptr,
+                           int width = 36, int min = 1, int max = 99);
   void AddLabel(const QString& label_text);
   void AddLineEditsStretch();
   ButtonType ButtonType() const { return button_type_; }
@@ -68,7 +69,8 @@ class LabelledLineEdit : public QWidget {
                    const QString& label_text = "",
                    int value = 0,
                    bool editable = true,
-                   QLineEdit** line_edit_ptr = nullptr);
+                   QLineEdit** line_edit_ptr = nullptr,
+                   int width = 36, int min = 1, int max = 99);
 private:
   QVBoxLayout* layout;
   QLabel* label;
@@ -278,6 +280,7 @@ class Wordmonger : public QMainWindow {
     ChooserButtonRow* blanks;
     ChooserButtonRow* num_solutions;
     ChooserButtonRow* rows_and_columns;
+    ChooserButtonRow* ordering;
     ChooserButtonRow* quiz_time;
 
     Preview* quiz_preview;
@@ -309,9 +312,14 @@ class Wordmonger : public QMainWindow {
     Gaddag* gaddag_;
 
     QLineEdit* answer_line_edit = nullptr;
+
     QLineEdit* rows_line_edit = nullptr;
     QLineEdit* cols_line_edit = nullptr;
     QLineEdit* num_words_line_edit = nullptr;
+
+    QLineEdit* per_set_line_edit = nullptr;
+    QLineEdit* per_word_line_edit = nullptr;
+    QLineEdit* per_quiz_line_edit = nullptr;
 
     WordStatusBar* word_status_bar;
 

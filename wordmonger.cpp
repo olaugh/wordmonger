@@ -185,14 +185,29 @@ void Wordmonger::CreateQuizChoiceWidgets() {
                    SLOT(ColsChangedSlot(QString)));
   rows_and_columns->AddLabel("=");
   rows_and_columns->AddLabelledLineEdit("WORDS", 45, false,
-                                        &num_words_line_edit);
+                                        &num_words_line_edit, 42);
   rows_and_columns->AddLineEditsStretch();
   quiz_chooser_layout->addWidget(rows_and_columns);
 
+  ordering = new ChooserButtonRow(quiz_chooser, "Ordering", BUTTONS);
+  ordering->AddButton("RANDOM", "random");
+  ordering->AddButton("PLAYABLE", "playability");
+  ordering->AddButton("PROBABLE", "probability");
+
+  quiz_chooser_layout->addWidget(ordering);
+
   quiz_time = new ChooserButtonRow(quiz_chooser, "Time", LINE_EDITS);
+  quiz_time->AddLabelledLineEdit("SET (ms)", 2000, true, &per_set_line_edit,
+                                 60, 0, 99999);
+  quiz_time->AddLabelledLineEdit("WORD (ms)", 2000, true, &per_word_line_edit,
+                                 60, 0, 99999);
+  quiz_time->AddLabel("=");
+  quiz_time->AddLabelledLineEdit("QUIZ (s)", 0, false, &per_quiz_line_edit,
+                                 48, 0, 99999);
+  quiz_time->AddLineEditsStretch();
   quiz_chooser_layout->addWidget(quiz_time);
 
-  quiz_chooser_layout->setStretch(5, 1);
+  quiz_chooser_layout->setStretch(6, 1);
 
   quiz_preview = new Preview(central_widget);
   choosers_layout->addWidget(quiz_preview, 0, 1, 1, 1);
@@ -640,9 +655,11 @@ void ChooserButtonRow::AddButton(const QString& label, const QString& id) {
 void ChooserButtonRow::AddLabelledLineEdit(const QString& label,
                                            int value,
                                            bool editable,
-                                           QLineEdit** line_edit_ptr) {
+                                           QLineEdit** line_edit_ptr,
+                                           int width, int min, int max) {
   LabelledLineEdit* lle =
-      new LabelledLineEdit(line_edits, label, value, editable, line_edit_ptr);
+      new LabelledLineEdit(line_edits, label, value, editable,
+                           line_edit_ptr, width, min, max);
   line_edits_list << lle;
   line_edits_layout->addWidget(line_edits_list.back());
 }
@@ -691,7 +708,8 @@ void ChooserButtonRow::resizeEvent(QResizeEvent *event) {
 
 LabelledLineEdit::LabelledLineEdit(QWidget *parent, const QString& label_text,
                                    int value, bool editable,
-                                   QLineEdit** line_edit_ptr) {
+                                   QLineEdit** line_edit_ptr, int width,
+                                   int min, int max) {
   layout = new QVBoxLayout;
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(4);
@@ -710,9 +728,9 @@ LabelledLineEdit::LabelledLineEdit(QWidget *parent, const QString& label_text,
                        Wordmonger::get()->FontWeight());
   line_edit->setFont(line_edit_font);
   line_edit->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-  line_edit->setFixedWidth(36);
+  line_edit->setFixedWidth(width);
   if (editable) {
-    line_edit->setValidator(new QIntValidator(1, 99, this));
+    line_edit->setValidator(new QIntValidator(min, max, this));
   } else {
     line_edit->setDisabled(true);
   }
